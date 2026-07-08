@@ -1,0 +1,55 @@
+name: Build flashinfer
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "versions.yaml"
+      - "ci/generate_matrix.py"
+      - "ci/build_scripts/common.sh"
+      - "ci/build_scripts/flashinfer.sh"
+      - ".github/workflows/_build.yml"
+      - ".github/workflows/build-flashinfer.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compute-matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - id: matrix
+        run: python3 ci/generate_matrix.py --component flashinfer --github-output
+
+  build:
+    needs: compute-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.compute-matrix.outputs.matrix) }}
+    uses: ./.github/workflows/_build.yml
+    with:
+      component: ${{ matrix.component }}
+      path: ${{ matrix.path }}
+      ref: ${{ matrix.ref }}
+      builder: ${{ matrix.builder }}
+      runs-on: ${{ matrix.runs_on }}
+      cuda-version: ${{ matrix.cuda }}
+      python-version: ${{ matrix.python }}
+      torch-version: ${{ matrix.torch }}
+      torch-vision-version: ${{ matrix.torch_vision }}
+      torch-audio-version: ${{ matrix.torch_audio }}
+      cxx11-abi: ${{ matrix.cxx11_abi }}
+      torch-cuda-arch-list: ${{ matrix.torch_cuda_arch_list }}
+      requires-cudnn: ${{ matrix.requires_cudnn }}
+      max-jobs: ${{ matrix.max_jobs }}
+      extra-env: ${{ matrix.extra_env }}

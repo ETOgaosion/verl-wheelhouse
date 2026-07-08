@@ -1,0 +1,18 @@
+[submodule "apex"]
+	path = apex
+	url = https://github.com/NVIDIA/apex.git
+[submodule "TransformerEngine"]
+	path = TransformerEngine
+	url = https://github.com/NVIDIA/TransformerEngine.git
+[submodule "flashinfer"]
+	path = flashinfer
+	url = https://github.com/flashinfer-ai/flashinfer.git
+[submodule "flash-attention"]
+	path = flash-attention
+	url = https://github.com/Dao-AILab/flash-attention.git
+[submodule "sglang"]
+	path = sglang
+	url = https://github.com/sgl-project/sglang.git
+[submodule "vllm"]
+	path = vllm
+	url = https://github.com/vllm-project/vllm.git

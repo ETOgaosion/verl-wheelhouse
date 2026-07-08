@@ -1,0 +1,15 @@
+.DS_Store
+
+# Build artifacts produced by ci/build_scripts/*.sh
+dist/
+build/
+*.whl
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Local GitHub Pages staging output (see ci/build_index.py)
+_site/
+
+# Resumable build cache tarballs (see .github/workflows/_build.yml)
+build-cache.tar

@@ -1,0 +1,137 @@
+# Central, editable/extendable version map for the verl-wheelhouse build
+# pipeline. Edit this file to:
+#   - add a new CUDA / Python / Torch combination to build_matrix
+#   - bump a component's pinned git ref (branch, tag, or commit SHA)
+#   - add a brand new component to components
+#
+# Nothing else in this repo hard-codes version numbers: ci/generate_matrix.py
+# reads this file (from the project's base directory) to produce the GitHub
+# Actions build matrix, and the build scripts under ci/build_scripts/
+# receive every field below as an environment variable. No workflow changes
+# are needed for routine version bumps.
+
+# Base CUDA / Python / Torch matrix.
+#
+# Seeded from verl's own docker/Dockerfile.stable.vllm and
+# docker/Dockerfile.stable.sglang ARG defaults:
+#   ARG CUDA_VERSION=13.0.2
+#   ARG PYTHON_VERSION=3.12
+#   ARG TORCH_VERSION=2.11.0
+#   ARG TORCH_VISION_VERSION=0.26.0
+#   ARG TORCH_AUDIO_VERSION=2.11.0
+#
+# Every component in `components` below is built once per entry in this
+# list. Add another entry to build additional CUDA/Python/Torch
+# combinations.
+build_matrix:
+  - cuda: "13.0.2"
+    python: "3.12"
+    torch: "2.11.0"
+    torch_vision: "0.26.0"
+    torch_audio: "2.11.0"
+    # PyTorch >= 2.7 wheels default to the C++11 ABI; only flip this to
+    # "FALSE" if you need to match an older/legacy torch build.
+    cxx11_abi: "TRUE"
+
+# Versions verl's Dockerfiles pin for packages this repo does *not* build
+# (transformers/trl/nsight/megatron/verl itself). Tracked here purely so
+# there's one place to sanity-check compatibility when bumping build_matrix
+# or a component's ref below.
+verl_reference_versions:
+  transformers: "5.3.0"
+  trl: "0.27.0"
+  nsight_systems: "2025.6.1"
+  megatron: "core_v0.16.1"
+  verl: "v0.7.1"
+
+# Per-submodule build configuration.
+#
+# path:            submodule directory relative to the repo root.
+# ref:             git branch / tag / commit to check out before building.
+#                  This is authoritative and intentionally overrides
+#                  whatever commit the submodule pointer in this repo
+#                  happens to be on (see .github/workflows/_build.yml).
+# builder:         name of ci/build_scripts/<builder>.sh to run.
+# torch_cuda_arch_list: canonical arch list, e.g. "8.0;9.0;10.0;12.0" (or
+#                  null if the component hardcodes its own gencode flags).
+#                  ci/build_scripts/common.sh converts this per-component as
+#                  needed (e.g. flash-attention/TransformerEngine want the
+#                  undotted "80;90;100;120" form). flashinfer's list already
+#                  includes PTX-family suffix letters ("9.0a"/"12.0f") since
+#                  those can't be derived mechanically, so it is given
+#                  verbatim.
+# requires_cudnn:  whether the reusable workflow needs to apt-install cuDNN
+#                  before running the build script (only TransformerEngine
+#                  requires this - apex only optionally uses cuDNN for a
+#                  couple of contrib extensions we don't build).
+# max_jobs:        parallel build jobs. Deliberately small (1-2) to fit the
+#                  free GitHub-hosted runners this pipeline targets by
+#                  default; verl's own Dockerfiles use 128/256 on much
+#                  larger build machines, so bump this per-component once
+#                  runs_on points at something bigger (see README.md).
+# runs_on:         GitHub Actions runner label. A plain field here (rather
+#                  than a workflow constant) so self-hosted/larger runners
+#                  are a one-line edit away.
+# extra_env:       additional build-script-specific environment variables.
+components:
+  flash-attention:
+    path: flash-attention
+    ref: v2.8.3 # FLASH_ATTENTION_VERSION in both verl Dockerfiles
+    builder: flash_attention
+    torch_cuda_arch_list: "8.0;9.0;10.0;12.0"
+    requires_cudnn: false
+    max_jobs: 2
+    runs_on: ubuntu-24.04
+    extra_env: {}
+
+  apex:
+    path: apex
+    ref: main # both verl Dockerfiles build unpinned git+https://github.com/NVIDIA/apex.git
+    builder: apex
+    torch_cuda_arch_list: "7.5;8.0;8.6;9.0;10.0;11.0;12.0"
+    requires_cudnn: false
+    max_jobs: 2
+    runs_on: ubuntu-24.04
+    extra_env: {}
+
+  transformer-engine:
+    path: TransformerEngine
+    ref: v2.15 # TRANSFORMER_ENGINE_VERSION in both verl Dockerfiles
+    builder: transformer_engine
+    torch_cuda_arch_list: "8.0;9.0;10.0"
+    requires_cudnn: true
+    max_jobs: 1
+    runs_on: ubuntu-24.04
+    extra_env:
+      NVTE_BUILD_THREADS_PER_JOB: "4"
+
+  flashinfer:
+    path: flashinfer
+    ref: v0.6.13 # matches flashinfer-python/-cubin pins in vllm's requirements/cuda.txt
+    builder: flashinfer
+    torch_cuda_arch_list: "8.0 9.0a 10.0a 12.0f"
+    requires_cudnn: false
+    max_jobs: 2
+    runs_on: ubuntu-24.04
+    extra_env: {}
+
+  sglang-kernel:
+    path: sglang/sgl-kernel
+    ref: v0.5.12 # matches `FROM lmsysorg/sglang:v0.5.12` in verl's sglang Dockerfile
+    builder: sgl_kernel
+    torch_cuda_arch_list: null # sgl-kernel hardcodes its own gencode flags
+    requires_cudnn: false
+    max_jobs: 2
+    runs_on: ubuntu-24.04
+    extra_env: {}
+
+  vllm:
+    path: vllm
+    ref: v0.23.0 # VLLM_VERSION in verl's vllm Dockerfile
+    builder: vllm
+    torch_cuda_arch_list: "7.5;8.0;8.6;8.9;9.0;10.0;12.0"
+    requires_cudnn: false
+    max_jobs: 1
+    runs_on: ubuntu-24.04
+    extra_env:
+      NVCC_THREADS: "2"
