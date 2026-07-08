@@ -52,6 +52,10 @@ ci/
   build-all.yml           # builds every component x every matrix combo
   release.yml             # on `v*` tag push: GH release + build + upload
   publish-index.yml       # (re)publishes the GitHub Pages PEP 503 index
+docs/
+  maintaining-components.md  # step-by-step: upgrade a version / add a component
+.cursor/skills/
+  manage-wheelhouse-components/SKILL.md  # agent skill for the same tasks
 ```
 
 ## The version map (`versions.yaml`)
@@ -78,6 +82,12 @@ To add a new CUDA/Python/Torch combination, append an entry to
 `build_matrix`. To bump a component's version, edit its `ref`. To add a
 brand-new component, add an entry to `components` and a matching
 `ci/build_scripts/<builder>.sh`.
+
+See [docs/maintaining-components.md](docs/maintaining-components.md) for
+the full step-by-step guide (with a worked example) to both of these tasks.
+A matching Cursor Agent Skill
+([.cursor/skills/manage-wheelhouse-components](.cursor/skills/manage-wheelhouse-components/SKILL.md))
+lets an agent apply the same checklist automatically.
 
 `ci/generate_matrix.py` is the only code that reads `versions.yaml`; it
 turns it into the flat JSON matrix GitHub Actions consumes. Inspect the
