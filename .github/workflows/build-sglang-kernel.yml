@@ -16,6 +16,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   compute-matrix:
     runs-on: ubuntu-24.04
@@ -30,8 +33,21 @@ jobs:
       - id: matrix
         run: python3 ci/generate_matrix.py --component sglang-kernel --github-output
 
+  # A push (including a PR merge) to main publishes too, not just a `v*`
+  # tag: wheels land on sglang-kernel's own persistent release (tag
+  # "sglang-kernel-<ref>", see ci/release_meta.py) so they're always
+  # pip-installable from the tip of main. `release.yml`'s tag-triggered
+  # sweep targets the very same per-component release - this job just keeps
+  # it continuously updated between tagged releases too.
+  ensure-release:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/_ensure_release.yml
+    with:
+      component: sglang-kernel
+
   build:
-    needs: compute-matrix
+    needs: [compute-matrix, ensure-release]
+    if: always() && needs.compute-matrix.result == 'success' && (needs.ensure-release.result == 'success' || needs.ensure-release.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -53,3 +69,14 @@ jobs:
       requires-cudnn: ${{ matrix.requires_cudnn }}
       max-jobs: ${{ matrix.max_jobs }}
       extra-env: ${{ matrix.extra_env }}
+      upload-to-release: ${{ github.event_name == 'push' }}
+      release-version: ${{ matrix.release_tag }}
+
+  publish-index:
+    needs: build
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/publish-index.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

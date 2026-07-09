@@ -5,8 +5,10 @@ Actions build matrix.
 versions.yaml is the single editable/extendable source of truth for CUDA /
 Python / Torch combinations and per-component build config - it is plain
 data (no Python), so it can be read and edited without touching any code.
-This script is the only place that turns it into something GitHub Actions
-can consume.
+This script is the primary place that turns it into something GitHub
+Actions can consume (ci/release_meta.py, which computes per-component
+release tag/title/notes, imports this module's load_versions/release_tag
+helpers rather than re-reading versions.yaml itself).
 
 Every entry in the emitted JSON list is a flat dict that maps 1:1 onto the
 inputs of .github/workflows/_build.yml, so a workflow can do:
@@ -27,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
@@ -36,10 +39,34 @@ import yaml
 # versions.yaml lives in the project's base directory (one level up from ci/).
 VERSIONS_FILE = Path(__file__).resolve().parent.parent / "versions.yaml"
 
+# Characters not in this set get collapsed to "-" when building a release tag
+# out of a git ref, since refs (e.g. branch names) aren't guaranteed to be
+# valid/clean git tag components on their own.
+_TAG_UNSAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
+
 
 def load_versions() -> Dict[str, Any]:
     with open(VERSIONS_FILE, "r", encoding="utf-8") as fh:
         return yaml.safe_load(fh)
+
+
+def sanitize_ref(ref: str) -> str:
+    """Make a git ref safe to splice into a release tag."""
+    sanitized = _TAG_UNSAFE_RE.sub("-", ref).strip("-.")
+    return sanitized or "unknown"
+
+
+def release_tag(component: str, ref: str) -> str:
+    """Persistent per-component release tag, e.g. "vllm-v0.23.0".
+
+    Each component gets its own GitHub Release, keyed by its pinned ref
+    rather than by a shared "latest"/repo-level tag: rebuilding the same ref
+    re-uploads wheels onto the same release, and bumping the ref in
+    versions.yaml starts a new release, leaving the old one as history.
+    Shared with ci/release_meta.py so the release that gets created/updated
+    and the tag _build.yml uploads wheels to always match.
+    """
+    return f"{component}-{sanitize_ref(ref)}"
 
 
 def component_names(versions: Dict[str, Any]) -> List[str]:
@@ -57,13 +84,15 @@ def get_component(versions: Dict[str, Any], name: str) -> Dict[str, Any]:
 def build_matrix_entries(versions: Dict[str, Any], component: str) -> List[Dict[str, Any]]:
     """Cartesian-product one component's config against the whole build_matrix."""
     cfg = get_component(versions, component)
+    ref = str(cfg["ref"])
     entries = []
     for combo in versions["build_matrix"]:
         entries.append(
             {
                 "component": component,
                 "path": cfg["path"],
-                "ref": str(cfg["ref"]),
+                "ref": ref,
+                "release_tag": release_tag(component, ref),
                 "builder": cfg["builder"],
                 "runs_on": cfg["runs_on"],
                 "cuda": str(combo["cuda"]),

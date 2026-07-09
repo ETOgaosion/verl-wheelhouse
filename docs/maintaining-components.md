@@ -12,10 +12,12 @@ other logic needs to change for routine work.
 |---|---|
 | `versions.yaml` | The version map: CUDA/Python/Torch build matrix + per-component config |
 | `ci/generate_matrix.py` | Expands `versions.yaml` into the GitHub Actions matrix (no edits needed for routine work) |
+| `ci/release_meta.py` | Computes each component's release tag/title/notes (no edits needed for routine work) |
 | `ci/build_scripts/common.sh` | Shared bash helpers (no edits needed unless adding new shared logic) |
 | `ci/build_scripts/<builder>.sh` | The actual wheel-build command for one component |
 | `.github/workflows/build-<component>.yml` | Per-component trigger workflow |
 | `.github/workflows/_build.yml` | Reusable build workflow (no edits needed) |
+| `.github/workflows/_ensure_release.yml` | Reusable create/update-release workflow (no edits needed) |
 | `.github/workflows/build-all.yml`, `release.yml` | Already build every component via `--component all` (no edits needed) |
 
 ## Upgrading an existing component's version
@@ -37,10 +39,20 @@ other logic needs to change for routine work.
 
 5. Commit the `versions.yaml` change. Pushing to `main` automatically
    triggers that component's `build-<component>.yml` (its `paths:` filter
-   matches `versions.yaml`). You can also trigger it manually from the
-   Actions tab (`workflow_dispatch`) to test before merging.
-6. Once you're happy, tag a release (`git tag vX.Y.Z && git push --tags`) to
-   build and publish the new version everywhere (`release.yml`).
+   matches `versions.yaml`) - and, on success, that push also creates (or
+   reuses) that component's own persistent release - tag
+   `<component>-<new-ref>`, title `<component> <new-ref> - cu.. py..
+   torch..` (see `ci/release_meta.py`) - uploads the new wheel there, and
+   republishes the package index, so it's `pip install`-able right away.
+   Bumping `ref` therefore starts a brand-new release; the previous ref's
+   release is left untouched as history. You can also trigger the workflow
+   manually from the Actions tab (`workflow_dispatch`) to test before
+   merging (manual runs build but skip publishing).
+6. Once you're happy, push a tag matching `v*` (`git tag vX.Y.Z && git push
+   --tags`) to run `release.yml`: a full sweep that rebuilds every
+   component and re-ensures/uploads to each one's own release, same as
+   step 5 but across the whole matrix at once. The pushed tag is only a
+   trigger - it does not itself become a release.
 
 `apex` is the one exception - both verl Dockerfiles this repo mirrors build
 it unpinned from `main`, so there's no fixed version to bump; every build of
@@ -104,6 +116,13 @@ Worked checklist, using a hypothetical `xformers` component as the example:
      `.github/workflows/build-xformers.yml`
    - the `--component vllm` argument in the `compute-matrix` job →
      `--component xformers`
+   - the `component: vllm` input under the `ensure-release` job → `component: xformers`
+
+   Everything else - `workflow_dispatch`, the reusable `_ensure_release.yml`
+   call's structure, and the trailing `publish-index` job that runs after a
+   successful push build - is component-agnostic and can be copied as-is.
+   `ci/release_meta.py` will automatically compute `xformers`'s own release
+   tag/title once its `components:` entry exists in `versions.yaml`.
 
 5. **Update `README.md`'s component table and repo-layout listing** to
    mention the new component/workflow.

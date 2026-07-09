@@ -23,7 +23,12 @@ This file has the quick-reference version.
    `torch_cuda_arch_list` too (see arch-list conventions below).
 3. Validate: `pip install pyyaml && python3 ci/generate_matrix.py --component <name>`.
 4. Commit. Pushing to `main` auto-triggers `build-<component>.yml` (its
-   `paths:` filter matches `versions.yaml`).
+   `paths:` filter matches `versions.yaml`), and a successful build from a
+   push also creates that component's new persistent release - tag
+   `<component>-<new-ref>`, title `<component> <new-ref> - cu.. py..
+   torch..` (see `ci/release_meta.py`) - uploads the wheel there, and
+   republishes the index - no tag push needed to make it `pip
+   install`-able. The previous ref's release is left untouched as history.
 
 `apex` tracks `main` unpinned (matches verl's own Dockerfiles) - there is no
 version to bump for it.
@@ -45,7 +50,10 @@ Checklist:
       wheel(s) in `dist/` relative to CWD. Then `chmod +x` it.
 - [ ] Copy an existing `.github/workflows/build-<component>.yml` (e.g.
       `build-vllm.yml`) to `build-<new-component>.yml`; update its `name:`,
-      `paths:` filter entries, and the `--component <name>` argument.
+      `paths:` filter entries, the `--component <name>` argument, and the
+      `component:` input passed to `_ensure_release.yml` in the
+      `ensure-release` job. Leave the reusable workflow calls' structure and
+      the `publish-index` job untouched - they're otherwise component-agnostic.
 - [ ] Update `README.md`'s component table and repo-layout listing.
 - [ ] Validate:
       `pip install pyyaml && python3 ci/generate_matrix.py --component <name>`
@@ -64,6 +72,18 @@ Checklist:
 - flashinfer: given verbatim with PTX-family suffixes (e.g.
   `8.0 9.0a 12.0f`) since those can't be derived mechanically.
 - sgl-kernel: set to `null` - it hardcodes its own gencode flags.
+
+## Release naming
+
+Each component publishes to its **own** persistent GitHub Release (no
+single combined release for the whole repo): tag `<component>-<ref>`,
+title `<component> <ref> - cu<cuda> py<python> torch<torch>[; ...]` (one
+segment per `versions.yaml` `build_matrix` entry). This is computed by
+`ci/release_meta.py` and created/refreshed by the reusable
+`.github/workflows/_ensure_release.yml` workflow - don't hand-roll
+`gh release create`/`edit` calls elsewhere. Bumping a component's `ref`
+starts a brand-new release under a new tag; it never renames or reuses the
+previous ref's release.
 
 ## Key invariant
 

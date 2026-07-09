@@ -1,0 +1,63 @@
+name: "~Ensure release"
+
+# Reusable workflow: given one component name (or "all"), creates or
+# updates that component's persistent GitHub Release:
+#   tag:   "<component>-<ref>"                          e.g. "vllm-v0.23.0"
+#   title: "<component> <ref> - cu<cuda> py<python> torch<torch>[; ...]"
+#          e.g. "vllm v0.23.0 - cu13.0.2 py3.12 torch2.11.0"
+# (see ci/release_meta.py for the exact computation). The release is
+# created once per (component, ref) pair and reused - and its title kept in
+# sync - across every subsequent build of that same ref; bumping ref in
+# versions.yaml starts a brand new release, leaving the old one attached to
+# the old ref as a historical record.
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        description: "Component name from versions.yaml, or 'all' for every component"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  compute-release-meta:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.meta.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - id: meta
+        run: python3 ci/release_meta.py --component "${{ inputs.component }}" --github-output
+
+  ensure-release:
+    needs: compute-release-meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.compute-release-meta.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Create or update release ${{ matrix.tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ matrix.tag }}
+          TITLE: ${{ matrix.title }}
+          NOTES: ${{ matrix.notes }}
+        run: |
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" --title "$TITLE"
+            echo "Updated release $TAG (title refreshed in case build_matrix changed)."
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "$TITLE" \
+              --notes "$NOTES"
+            echo "Created release $TAG."
+          fi
