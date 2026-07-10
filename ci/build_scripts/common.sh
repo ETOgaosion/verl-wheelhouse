@@ -45,6 +45,36 @@ install_cudnn() {
 }
 
 # ---------------------------------------------------------------------------
+# install_nccl: TransformerEngine's common/util/logging.h always includes
+# nccl.h, and NCCL EP (enabled when NVTE_CUDA_ARCHS contains arch >= 90)
+# links libnccl at build time. Mirrors TE's own wheel Dockerfile
+# (libnccl2 + libnccl-dev) and vllm/docker/Dockerfile's CUDA-matched pin.
+# Expects CUDA_VERSION to be exported and the NVIDIA CUDA apt repo to already
+# be configured (Jimver/cuda-toolkit's network install step does this).
+# ---------------------------------------------------------------------------
+install_nccl() {
+  local cuda_short nccl_ver
+  cuda_short="$(echo "${CUDA_VERSION}" | cut -d. -f1,2)"
+
+  echo "::group::Install NCCL (+cuda${cuda_short})"
+  sudo apt-get update
+  nccl_ver="$(
+    apt-cache madison libnccl-dev 2>/dev/null \
+      | grep "+cuda${cuda_short}" \
+      | head -1 \
+      | awk -F'|' '{gsub(/^ +| +$/, "", $2); print $2}'
+  )"
+  if [ -z "${nccl_ver}" ]; then
+    echo "::error::No libnccl-dev package found for +cuda${cuda_short}" >&2
+    exit 1
+  fi
+  sudo apt-get install -y --no-install-recommends --allow-change-held-packages \
+    "libnccl-dev=${nccl_ver}" "libnccl2=${nccl_ver}"
+  echo "Installed libnccl-dev=${nccl_ver} libnccl2=${nccl_ver}"
+  echo "::endgroup::"
+}
+
+# ---------------------------------------------------------------------------
 # arch_list_strip_dots: convert the canonical "8.0;9.0;10.0;12.0" arch list
 # into the undotted "80;90;100;120" form that flash-attention's
 # FLASH_ATTN_CUDA_ARCHS and TransformerEngine's NVTE_CUDA_ARCHS expect.
@@ -86,6 +116,50 @@ export_extra_env() {
     export "${key}=${value}"
     echo "Exported ${key}=${value} (from extra_env)"
   done < <(echo "${EXTRA_ENV}" | jq -r 'to_entries[] | "\(.key)=\(.value)"')
+}
+
+# ---------------------------------------------------------------------------
+# ensure_cuda_cccl_include_path: CUDA 13+ moved CCCL headers (cuda/atomic,
+# cuda/std/*, thrust, cub) under ${CUDA_HOME}/include/cccl/. nvcc adds this
+# automatically, but host C++ TUs built with g++ (e.g. mscclpp inside
+# sgl-kernel) need CPLUS_INCLUDE_PATH / C_INCLUDE_PATH set explicitly.
+# Mirrors sgl-kernel Dockerfile and flash-attention hopper/setup.py.
+# ---------------------------------------------------------------------------
+ensure_cuda_cccl_include_path() {
+  local cuda_home cccl_include="" candidate env_var current
+
+  cuda_home="${CUDA_HOME:-}"
+  if [ -z "${cuda_home}" ] && command -v nvcc >/dev/null 2>&1; then
+    cuda_home="$(dirname "$(dirname "$(command -v nvcc)")")"
+  fi
+  cuda_home="${cuda_home:-/usr/local/cuda}"
+
+  for candidate in \
+    "${cuda_home}/include/cccl" \
+    "${cuda_home}/targets/x86_64-linux/include/cccl"; do
+    if [ -d "${candidate}/cuda" ]; then
+      cccl_include="${candidate}"
+      break
+    fi
+  done
+
+  if [ -z "${cccl_include}" ]; then
+    echo "::warning::CCCL include dir not found under ${cuda_home}; CUDA 13+ host builds may fail" >&2
+    return 0
+  fi
+
+  for env_var in CPLUS_INCLUDE_PATH C_INCLUDE_PATH; do
+    current="${!env_var:-}"
+    if [[ ":${current}:" == *":${cccl_include}:"* ]]; then
+      continue
+    fi
+    if [ -n "${current}" ]; then
+      export "${env_var}=${cccl_include}:${current}"
+    else
+      export "${env_var}=${cccl_include}"
+    fi
+  done
+  echo "Prepended ${cccl_include} to CPLUS_INCLUDE_PATH and C_INCLUDE_PATH"
 }
 
 # ---------------------------------------------------------------------------

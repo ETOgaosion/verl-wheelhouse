@@ -157,7 +157,10 @@ jobs:
           # etc. on any CUDA version - so they must go through
           # non-cuda-sub-packages (no prefix added) instead, with both the
           # runtime and -dev (headers) package requested.
-          sub-packages: '["nvcc", "cudart", "nvrtc", "nvrtc-dev", "nvtx", "profiler-api"]'
+          # cccl ships cuda/atomic, cuda/std/*, thrust, cub headers. CUDA 13
+          # moved them under include/cccl/; host C++ builds need the cccl
+          # include root on the search path (see ensure_cuda_cccl_include_path).
+          sub-packages: '["nvcc", "cudart", "nvrtc", "nvrtc-dev", "nvtx", "profiler-api", "cccl"]'
           non-cuda-sub-packages: '["libcublas", "libcublas-dev", "libcusolver", "libcusolver-dev", "libcusparse", "libcusparse-dev", "libcurand", "libcurand-dev", "libcufft", "libcufft-dev"]'
 
       - name: Install cuDNN

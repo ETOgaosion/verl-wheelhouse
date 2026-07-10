@@ -10,13 +10,16 @@
 # swapping `pip install` for `pip wheel --no-deps -w dist` against the local
 # pinned checkout (`.`) so a distributable artifact is produced. Run with
 # CWD = the TransformerEngine submodule checkout. Requires cuDNN (installed
-# by the calling workflow, see versions.yaml's requires_cudnn: true).
+# by the calling workflow, see versions.yaml's requires_cudnn: true) and NCCL
+# (installed here via install_nccl).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=ci/build_scripts/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
 export_extra_env
+
+install_nccl
 
 # Both verl Dockerfiles pre-install these before building TransformerEngine.
 pip install -q pybind11 nvidia-mathdx ninja wheel packaging
