@@ -18,6 +18,13 @@ export CMAKE_BUILD_PARALLEL_LEVEL="${MAX_JOBS}"
 ensure_cuda_nvrtc_for_cmake
 ensure_cuda_cccl_include_path
 
+# sgl-kernel defaults SGL_KERNEL_COMPILE_THREADS=32 (nvcc --threads per TU).
+# On GitHub's 7 GB runners, MAX_JOBS parallel ninja targets × 32 nvcc threads
+# routinely OOM-kills the build (exit 143). sgl-kernel's own README recommends
+# CMAKE_ARGS="-DSGL_KERNEL_COMPILE_THREADS=1" for memory-constrained builds.
+export CMAKE_ARGS="${CMAKE_ARGS:-} -DSGL_KERNEL_COMPILE_THREADS=1 -DGITHUB_ARTIFACTORY=github.com"
+echo "CMAKE_ARGS=${CMAKE_ARGS}"
+
 uv build --wheel --no-build-isolation -Cbuild-dir=build .
 ./rename_wheels.sh
 

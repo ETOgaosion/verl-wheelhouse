@@ -121,7 +121,7 @@ components:
     builder: sgl_kernel
     torch_cuda_arch_list: null # sgl-kernel hardcodes its own gencode flags
     requires_cudnn: false
-    max_jobs: 2
+    max_jobs: 1
     runs_on: ubuntu-24.04
     extra_env: {}
 

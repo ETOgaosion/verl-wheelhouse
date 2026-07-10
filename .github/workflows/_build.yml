@@ -221,13 +221,13 @@ jobs:
           timeout 5h bash "${GITHUB_WORKSPACE}/ci/build_scripts/${{ inputs.builder }}.sh"
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
-      - name: Save resumable build cache (on timeout)
-        if: always() && steps.build_wheel.outputs.exit_code == '124'
+      - name: Save resumable build cache (on interrupt)
+        if: always() && contains(fromJSON('["124", "137", "143"]'), steps.build_wheel.outputs.exit_code)
         working-directory: ${{ inputs.path }}
         run: tar -cpf build-cache.tar --exclude=build-cache.tar .
 
-      - name: Upload resumable build cache (on timeout)
-        if: always() && steps.build_wheel.outputs.exit_code == '124'
+      - name: Upload resumable build cache (on interrupt)
+        if: always() && contains(fromJSON('["124", "137", "143"]'), steps.build_wheel.outputs.exit_code)
         uses: actions/cache/save@v4
         with:
           path: ${{ inputs.path }}/build-cache.tar
@@ -239,8 +239,14 @@ jobs:
           echo "::error::${{ inputs.component }} did not finish within the 5h budget. A resumable build cache was saved - re-run this workflow to continue from where it left off."
           exit 1
 
+      - name: Fail if build was killed (OOM or runner interrupt)
+        if: steps.build_wheel.outputs.exit_code == '137' || steps.build_wheel.outputs.exit_code == '143'
+        run: |
+          echo "::error::${{ inputs.component }} was killed (exit ${{ steps.build_wheel.outputs.exit_code }}; 137=SIGKILL/OOM, 143=SIGTERM). A resumable build cache was saved - re-run this workflow to continue from where it left off."
+          exit 1
+
       - name: Fail on build error
-        if: steps.build_wheel.outputs.exit_code != '0' && steps.build_wheel.outputs.exit_code != '124'
+        if: steps.build_wheel.outputs.exit_code != '0' && !contains(fromJSON('["124", "137", "143"]'), steps.build_wheel.outputs.exit_code)
         run: exit ${{ steps.build_wheel.outputs.exit_code }}
 
       - name: Upload wheel artifact
