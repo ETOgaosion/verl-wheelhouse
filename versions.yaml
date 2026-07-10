@@ -86,7 +86,7 @@ components:
 
   apex:
     path: apex
-    ref: main # both verl Dockerfiles build unpinned git+https://github.com/NVIDIA/apex.git
+    ref: master # both verl Dockerfiles build unpinned git+https://github.com/NVIDIA/apex.git (NVIDIA/apex's default branch is "master", not "main")
     builder: apex
     torch_cuda_arch_list: "7.5;8.0;8.6;9.0;10.0;11.0;12.0"
     requires_cudnn: false

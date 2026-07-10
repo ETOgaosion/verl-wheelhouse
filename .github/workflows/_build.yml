@@ -95,12 +95,28 @@ jobs:
 
       - name: Checkout ${{ inputs.component }} @ ${{ inputs.ref }}
         run: |
+          # inputs.path is the build working directory, which is either a
+          # submodule root (e.g. "vllm") or a subdirectory within one (e.g.
+          # "sglang/sgl-kernel", which lives inside the "sglang" submodule -
+          # sgl-kernel isn't a submodule in its own right). `git submodule
+          # update -- <pathspec>` only recognizes paths registered in
+          # .gitmodules, so walk up from inputs.path to find the nearest
+          # registered submodule root.
+          submodule_path="${{ inputs.path }}"
+          while ! git config -f .gitmodules --get-regexp 'submodule\..*\.path' | awk '{print $2}' | grep -qx "$submodule_path"; do
+            if [ "$submodule_path" = "." ]; then
+              echo "::error::No submodule in .gitmodules matches or contains path '${{ inputs.path }}'" >&2
+              exit 1
+            fi
+            submodule_path="$(dirname "$submodule_path")"
+          done
+
           # Shallow-init the submodule (fast - uses whatever commit is
           # currently pinned just to get a working .git + origin remote),
           # then fetch and check out the ref versions.yaml actually pins.
           # This decouples version bumps from the submodule pointer commit.
-          git submodule update --init --depth 1 -- "${{ inputs.path }}"
-          cd "${{ inputs.path }}"
+          git submodule update --init --depth 1 -- "$submodule_path"
+          cd "$submodule_path"
           git fetch --depth 1 origin "${{ inputs.ref }}"
           git checkout --detach FETCH_HEAD
           git submodule update --init --recursive --depth 1
@@ -127,7 +143,15 @@ jobs:
           cuda: ${{ inputs.cuda-version }}
           method: network
           linux-local-args: '["--toolkit"]'
-          sub-packages: '["nvcc", "cudart", "cublas", "cusolver", "cusparse", "curand", "cufft", "nvrtc"]'
+          # nvcc/cudart/nvrtc are genuine "cuda-<name>-X-Y" apt packages, so
+          # sub-packages (which prepends "cuda-") works for them. cublas,
+          # cusolver, cusparse, curand and cufft are NOT: NVIDIA has only
+          # ever published these as "lib<name>-X-Y" / "lib<name>-dev-X-Y" -
+          # there is no "cuda-cublas-X-Y" etc. on any CUDA version - so they
+          # must go through non-cuda-sub-packages (no prefix added) instead,
+          # with both the runtime and -dev (headers) package requested.
+          sub-packages: '["nvcc", "cudart", "nvrtc"]'
+          non-cuda-sub-packages: '["libcublas", "libcublas-dev", "libcusolver", "libcusolver-dev", "libcusparse", "libcusparse-dev", "libcurand", "libcurand-dev", "libcufft", "libcufft-dev"]'
 
       - name: Install cuDNN
         if: inputs.requires-cudnn == 'true'

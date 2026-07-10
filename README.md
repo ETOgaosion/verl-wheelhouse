@@ -188,9 +188,9 @@ Or install a specific wheel directly from that component's
 - **Only `sgl-kernel` is built from the `sglang` submodule.** The rest of
   the `sglang` Python package has no CUDA to compile, so it's out of scope
   for this wheelhouse.
-- **`apex` tracks `main`** (both verl Dockerfiles build it unpinned), so it
+- **`apex` tracks `master`** (both verl Dockerfiles build it unpinned), so it
   effectively behaves like a rolling release under the fixed tag
-  `apex-main`; every other component tracks a specific tag and gets a fresh
+  `apex-master`; every other component tracks a specific tag and gets a fresh
   release per version bump.
 - **Old per-component releases aren't deleted automatically.** Bumping a
   `ref` starts a new release rather than replacing the old one, so the PEP
