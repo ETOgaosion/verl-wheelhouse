@@ -2,14 +2,12 @@ name: Publish package index
 
 # (Re)builds the static PEP 503 "simple" index from every .whl currently
 # attached to any GitHub Release, and deploys it to GitHub Pages. Chained
-# automatically from release.yml after a release build finishes; can also
-# be run standalone (workflow_dispatch, or whenever a release is published/
-# edited) to refresh the index without rebuilding any wheels.
+# from release.yml / build-<component>.yml only after a successful build;
+# can also be run standalone via workflow_dispatch to refresh the index
+# without rebuilding any wheels.
 
 on:
   workflow_dispatch: {}
-  release:
-    types: [published, edited, deleted]
   workflow_call: {}
 
 permissions:

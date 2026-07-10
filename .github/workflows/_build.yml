@@ -143,14 +143,19 @@ jobs:
           cuda: ${{ inputs.cuda-version }}
           method: network
           linux-local-args: '["--toolkit"]'
-          # nvcc/cudart/nvrtc are genuine "cuda-<name>-X-Y" apt packages, so
-          # sub-packages (which prepends "cuda-") works for them. cublas,
-          # cusolver, cusparse, curand and cufft are NOT: NVIDIA has only
-          # ever published these as "lib<name>-X-Y" / "lib<name>-dev-X-Y" -
-          # there is no "cuda-cublas-X-Y" etc. on any CUDA version - so they
-          # must go through non-cuda-sub-packages (no prefix added) instead,
-          # with both the runtime and -dev (headers) package requested.
-          sub-packages: '["nvcc", "cudart", "nvrtc"]'
+          # nvcc/cudart/nvrtc/nvtx/profiler-api are genuine "cuda-<name>-X-Y" apt
+          # packages, so sub-packages (which prepends "cuda-") works for them.
+          # nvtx ships the header-only NVTX v3 API (nvtx3/nvToolsExt.h) that
+          # TransformerEngine includes from common/nvtx.h. profiler-api ships
+          # cuda_profiler_api.h, which apex and TransformerEngine megatron
+          # softmax kernels include (even though they don't call the profiler
+          # API). cublas, cusolver, cusparse, curand and cufft are NOT: NVIDIA
+          # has only ever published these as "lib<name>-X-Y" /
+          # "lib<name>-dev-X-Y" - there is no "cuda-cublas-X-Y" etc. on any CUDA
+          # version - so they must go through non-cuda-sub-packages (no prefix
+          # added) instead, with both the runtime and -dev (headers) package
+          # requested.
+          sub-packages: '["nvcc", "cudart", "nvrtc", "nvtx", "profiler-api"]'
           non-cuda-sub-packages: '["libcublas", "libcublas-dev", "libcusolver", "libcusolver-dev", "libcusparse", "libcusparse-dev", "libcurand", "libcurand-dev", "libcufft", "libcufft-dev"]'
 
       - name: Install cuDNN
@@ -239,6 +244,29 @@ jobs:
           name: wheel-${{ inputs.component }}-cu${{ inputs.cuda-version }}-py${{ inputs.python-version }}-torch${{ inputs.torch-version }}
           path: ${{ inputs.path }}/dist/*.whl
           if-no-files-found: error
+
+      - name: Ensure release ${{ inputs.release-version }}
+        if: inputs.upload-to-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install pyyaml
+          python3 ci/release_meta.py --component "${{ inputs.component }}" > release-meta.json
+          TAG=$(python3 -c "import json; print(json.load(open('release-meta.json'))[0]['tag'])")
+          TITLE=$(python3 -c "import json; print(json.load(open('release-meta.json'))[0]['title'])")
+          NOTES=$(python3 -c "import json; print(json.load(open('release-meta.json'))[0]['notes'])")
+          if [ "$TAG" != "${{ inputs.release-version }}" ]; then
+            echo "::error::release_meta tag ($TAG) does not match release-version (${{ inputs.release-version }})" >&2
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" --title "$TITLE"
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "$TITLE" \
+              --notes "$NOTES"
+          fi
 
       - name: Upload wheel(s) to release ${{ inputs.release-version }}
         if: inputs.upload-to-release

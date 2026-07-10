@@ -58,6 +58,20 @@ arch_list_strip_dots() {
 }
 
 # ---------------------------------------------------------------------------
+# install_sgl_kernel_build_deps: sgl-kernel pulls in mscclpp via CMake, which
+# requires libnuma and libibverbs dev headers/libs. Mirrors sglang's CI apt
+# install list (scripts/ci/cuda/ci_install_dependency.sh) and the sgl-kernel
+# Dockerfile (numactl-devel, libibverbs).
+# ---------------------------------------------------------------------------
+install_sgl_kernel_build_deps() {
+  echo "::group::Install sgl-kernel build dependencies"
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends \
+    libnuma-dev libibverbs-dev libibverbs1 ibverbs-providers ibverbs-utils pkg-config
+  echo "::endgroup::"
+}
+
+# ---------------------------------------------------------------------------
 # export_extra_env: EXTRA_ENV is exported as a JSON object string by the
 # workflow (e.g. '{"NVTE_BUILD_THREADS_PER_JOB": "4"}'); turn its entries
 # into real exported environment variables.
@@ -72,4 +86,43 @@ export_extra_env() {
     export "${key}=${value}"
     echo "Exported ${key}=${value} (from extra_env)"
   done < <(echo "${EXTRA_ENV}" | jq -r 'to_entries[] | "\(.key)=\(.value)"')
+}
+
+# ---------------------------------------------------------------------------
+# ensure_cuda_nvrtc_for_cmake: vllm's CXX extensions (spinloop, cumem_allocator)
+# link TORCH_LIBRARIES, which pulls in NVRTC. CMake's FindCUDAToolkit looks for
+# an unversioned libnvrtc.so, but the cuda-nvrtc apt sub-package on GitHub
+# runners only ships libnvrtc.so.<major> (see vllm-project/vllm#29669). Point
+# CMake at the versioned library explicitly via CMAKE_ARGS, which setup.py
+# forwards to its configure step.
+# ---------------------------------------------------------------------------
+ensure_cuda_nvrtc_for_cmake() {
+  if [[ "${CMAKE_ARGS:-}" == *"CUDA_nvrtc_LIBRARY"* ]]; then
+    return 0
+  fi
+
+  local cuda_home libdir nvrtc
+  cuda_home="${CUDA_HOME:-}"
+  if [ -z "${cuda_home}" ] && command -v nvcc >/dev/null 2>&1; then
+    cuda_home="$(dirname "$(dirname "$(command -v nvcc)")")"
+  fi
+  cuda_home="${cuda_home:-/usr/local/cuda}"
+
+  for libdir in "${cuda_home}/lib64" "${cuda_home}/targets/x86_64-linux/lib"; do
+    [ -d "${libdir}" ] || continue
+    if [ -e "${libdir}/libnvrtc.so" ]; then
+      nvrtc="${libdir}/libnvrtc.so"
+      break
+    fi
+    nvrtc="$(find "${libdir}" -maxdepth 1 -name 'libnvrtc.so.*' -type f -print 2>/dev/null | sort -V | tail -1)"
+    [ -n "${nvrtc}" ] && break
+  done
+
+  if [ -z "${nvrtc}" ]; then
+    echo "::warning::Could not locate libnvrtc under ${cuda_home}; vllm CMake may fail" >&2
+    return 0
+  fi
+
+  export CMAKE_ARGS="${CMAKE_ARGS:-} -DCUDA_nvrtc_LIBRARY=${nvrtc}"
+  echo "Set CMAKE_ARGS CUDA_nvrtc_LIBRARY=${nvrtc}"
 }

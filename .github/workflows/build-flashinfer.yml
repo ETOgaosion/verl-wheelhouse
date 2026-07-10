@@ -33,21 +33,8 @@ jobs:
       - id: matrix
         run: python3 ci/generate_matrix.py --component flashinfer --github-output
 
-  # A push (including a PR merge) to main publishes too, not just a `v*`
-  # tag: wheels land on flashinfer's own persistent release (tag
-  # "flashinfer-<ref>", see ci/release_meta.py) so they're always
-  # pip-installable from the tip of main. `release.yml`'s tag-triggered
-  # sweep targets the very same per-component release - this job just keeps
-  # it continuously updated between tagged releases too.
-  ensure-release:
-    if: github.event_name == 'push'
-    uses: ./.github/workflows/_ensure_release.yml
-    with:
-      component: flashinfer
-
   build:
-    needs: [compute-matrix, ensure-release]
-    if: always() && needs.compute-matrix.result == 'success' && (needs.ensure-release.result == 'success' || needs.ensure-release.result == 'skipped')
+    needs: compute-matrix
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +61,7 @@ jobs:
 
   publish-index:
     needs: build
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.build.result == 'success'
     uses: ./.github/workflows/publish-index.yml
     permissions:
       contents: read

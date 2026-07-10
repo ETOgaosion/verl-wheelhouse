@@ -1,12 +1,10 @@
 name: Release wheels
 
 # On a `v*` tag push (or manual dispatch): run a full-matrix rebuild across
-# every component, ensuring/updating each component's own persistent GitHub
-# Release (tag "<component>-<ref>", see ci/release_meta.py) and uploading
-# its wheel(s) there. The pushed tag itself is just the trigger - it is not
-# a release on its own; see build-<component>.yml for the same per-component
-# release model applied to every push to main. Finishes by (re)publishing
-# the GitHub Pages PEP 503 index so the new wheels become pip-installable.
+# every component, creating each component's GitHub Release and uploading
+# wheel(s) only after that combination's build succeeds (see _build.yml).
+# Finishes by (re)publishing the GitHub Pages PEP 503 index only when every
+# build job succeeds.
 
 on:
   push:
@@ -31,13 +29,8 @@ jobs:
       - id: matrix
         run: python3 ci/generate_matrix.py --component all --github-output
 
-  ensure-releases:
-    uses: ./.github/workflows/_ensure_release.yml
-    with:
-      component: all
-
   build:
-    needs: [compute-matrix, ensure-releases]
+    needs: compute-matrix
     strategy:
       fail-fast: false
       matrix:
@@ -64,6 +57,7 @@ jobs:
 
   publish-index:
     needs: build
+    if: success()
     uses: ./.github/workflows/publish-index.yml
     permissions:
       contents: read

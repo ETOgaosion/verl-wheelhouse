@@ -28,6 +28,8 @@ export MAX_JOBS="${MAX_JOBS}"
 export NVCC_THREADS="${NVCC_THREADS:-2}"
 export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
 
+ensure_cuda_nvrtc_for_cmake
+
 python setup.py bdist_wheel --dist-dir=dist
 
 echo "Built wheels:"

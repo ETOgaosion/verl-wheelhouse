@@ -19,6 +19,15 @@ echo "::group::flashinfer-python (JIT core wheel)"
 python -m build --wheel --outdir dist .
 echo "::endgroup::"
 
+# flashinfer-cubin and flashinfer-jit-cache use --no-isolation so pip keeps
+# the workflow-pinned torch instead of pulling one from PyPI. That skips the
+# automatic install of [build-system].requires; install those deps explicitly
+# (see flashinfer-cubin/pyproject.toml and flashinfer-jit-cache/pyproject.toml).
+pip install -q \
+  "setuptools>=77" "packaging>=24" filelock \
+  "apache-tvm-ffi>=0.1.6,!=0.1.8,!=0.1.8.post0,<0.2" \
+  nvidia-ml-py requests tqdm
+
 echo "::group::flashinfer-cubin"
 (
   cd flashinfer-cubin

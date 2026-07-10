@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 export_extra_env
+install_sgl_kernel_build_deps
 
 pip install -q "scikit-build-core>=0.10" wheel uv ninja setuptools numpy
 
