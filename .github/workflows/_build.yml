@@ -147,7 +147,8 @@ jobs:
           # packages, so sub-packages (which prepends "cuda-") works for them.
           # nvrtc-dev is separate from nvrtc: the runtime package only ships
           # libnvrtc.so, while nvrtc.h lives in cuda-nvrtc-dev (under
-          # targets/x86_64-linux/include). nvtx ships the header-only NVTX v3
+          # targets/x86_64-linux/include). nvml-dev likewise ships nvml.h for
+          # TransformerEngine's util/cuda_nvml.cpp. nvtx ships the header-only NVTX v3
           # API (nvtx3/nvToolsExt.h) that TransformerEngine includes from
           # common/nvtx.h. profiler-api ships cuda_profiler_api.h, which apex
           # and TransformerEngine megatron softmax kernels include (even though
@@ -160,7 +161,7 @@ jobs:
           # cccl ships cuda/atomic, cuda/std/*, thrust, cub headers. CUDA 13
           # moved them under include/cccl/; host C++ builds need the cccl
           # include root on the search path (see ensure_cuda_cccl_include_path).
-          sub-packages: '["nvcc", "cudart", "nvrtc", "nvrtc-dev", "nvtx", "profiler-api", "cccl"]'
+          sub-packages: '["nvcc", "cudart", "nvrtc", "nvrtc-dev", "nvml-dev", "nvtx", "profiler-api", "cccl"]'
           non-cuda-sub-packages: '["libcublas", "libcublas-dev", "libcusolver", "libcusolver-dev", "libcusparse", "libcusparse-dev", "libcurand", "libcurand-dev", "libcufft", "libcufft-dev"]'
 
       - name: Install cuDNN
@@ -198,6 +199,15 @@ jobs:
             tar -xpf build-cache.tar
             rm -f build-cache.tar
           fi
+
+      - name: Restore flashinfer cubin cache
+        if: inputs.component == 'flashinfer'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ inputs.path }}/flashinfer-cubin/flashinfer_cubin/cubins
+          key: flashinfer-cubins-${{ inputs.ref }}
+          restore-keys: |
+            flashinfer-cubins-
 
       - name: Build wheel
         id: build_wheel
@@ -248,6 +258,13 @@ jobs:
       - name: Fail on build error
         if: steps.build_wheel.outputs.exit_code != '0' && !contains(fromJSON('["124", "137", "143"]'), steps.build_wheel.outputs.exit_code)
         run: exit ${{ steps.build_wheel.outputs.exit_code }}
+
+      - name: Save flashinfer cubin cache
+        if: inputs.component == 'flashinfer' && steps.build_wheel.outputs.exit_code == '0'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ inputs.path }}/flashinfer-cubin/flashinfer_cubin/cubins
+          key: flashinfer-cubins-${{ inputs.ref }}
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4

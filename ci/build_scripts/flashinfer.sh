@@ -6,6 +6,7 @@
 # and flashinfer-jit-cache/ subprojects.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # shellcheck source=ci/build_scripts/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
@@ -28,7 +29,20 @@ pip install -q \
   "apache-tvm-ffi>=0.1.6,!=0.1.8,!=0.1.8.post0,<0.2" \
   nvidia-ml-py requests tqdm
 
-echo "::group::flashinfer-cubin"
+export FLASHINFER_CUBIN_DIR="$(pwd)/flashinfer-cubin/flashinfer_cubin/cubins"
+export FLASHINFER_LOGGING_LEVEL="${FLASHINFER_LOGGING_LEVEL:-WARNING}"
+
+echo "::group::Download flashinfer cubins"
+python "${REPO_ROOT}/ci/download_flashinfer_cubins.py" \
+  --flashinfer-root "$(pwd)" \
+  --cubin-dir "${FLASHINFER_CUBIN_DIR}"
+export FLASHINFER_CUBINS_PRELOADED=1
+echo "::endgroup::"
+
+# Tell the PEP 517 backend to skip re-downloading during wheel packaging.
+export PYTHONPATH="${REPO_ROOT}/ci${PYTHONPATH:+:${PYTHONPATH}}"
+
+echo "::group::flashinfer-cubin (package wheel)"
 (
   cd flashinfer-cubin
   python -m build --no-isolation --wheel --outdir ../dist .

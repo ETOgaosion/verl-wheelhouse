@@ -9,6 +9,9 @@ on:
       - "ci/generate_matrix.py"
       - "ci/build_scripts/common.sh"
       - "ci/build_scripts/flashinfer.sh"
+      - "ci/download_flashinfer_cubins.py"
+      - "ci/flashinfer_cubin_patch.py"
+      - "ci/flashinfer_cubin_patch.pth"
       - ".github/workflows/_build.yml"
       - ".github/workflows/build-flashinfer.yml"
 
