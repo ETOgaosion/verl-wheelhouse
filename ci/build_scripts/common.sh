@@ -89,12 +89,11 @@ export_extra_env() {
 }
 
 # ---------------------------------------------------------------------------
-# ensure_cuda_nvrtc_for_cmake: vllm's CXX extensions (spinloop, cumem_allocator)
-# link TORCH_LIBRARIES, which pulls in NVRTC. CMake's FindCUDAToolkit looks for
-# an unversioned libnvrtc.so, but the cuda-nvrtc apt sub-package on GitHub
-# runners only ships libnvrtc.so.<major> (see vllm-project/vllm#29669). Point
-# CMake at the versioned library explicitly via CMAKE_ARGS, which setup.py
-# forwards to its configure step.
+# ensure_cuda_nvrtc_for_cmake: CMake FindCUDAToolkit looks for an unversioned
+# libnvrtc.so, but the cuda-nvrtc apt sub-package on GitHub runners only ships
+# libnvrtc.so.<major> (see vllm-project/vllm#29669). Point CMake at the
+# versioned library explicitly via CMAKE_ARGS (used by vllm's setup.py and
+# sgl-kernel's scikit-build-core/uv build).
 # ---------------------------------------------------------------------------
 ensure_cuda_nvrtc_for_cmake() {
   if [[ "${CMAKE_ARGS:-}" == *"CUDA_nvrtc_LIBRARY"* ]]; then

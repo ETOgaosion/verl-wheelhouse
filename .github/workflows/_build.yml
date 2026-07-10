@@ -145,17 +145,19 @@ jobs:
           linux-local-args: '["--toolkit"]'
           # nvcc/cudart/nvrtc/nvtx/profiler-api are genuine "cuda-<name>-X-Y" apt
           # packages, so sub-packages (which prepends "cuda-") works for them.
-          # nvtx ships the header-only NVTX v3 API (nvtx3/nvToolsExt.h) that
-          # TransformerEngine includes from common/nvtx.h. profiler-api ships
-          # cuda_profiler_api.h, which apex and TransformerEngine megatron
-          # softmax kernels include (even though they don't call the profiler
-          # API). cublas, cusolver, cusparse, curand and cufft are NOT: NVIDIA
-          # has only ever published these as "lib<name>-X-Y" /
-          # "lib<name>-dev-X-Y" - there is no "cuda-cublas-X-Y" etc. on any CUDA
-          # version - so they must go through non-cuda-sub-packages (no prefix
-          # added) instead, with both the runtime and -dev (headers) package
-          # requested.
-          sub-packages: '["nvcc", "cudart", "nvrtc", "nvtx", "profiler-api"]'
+          # nvrtc-dev is separate from nvrtc: the runtime package only ships
+          # libnvrtc.so, while nvrtc.h lives in cuda-nvrtc-dev (under
+          # targets/x86_64-linux/include). nvtx ships the header-only NVTX v3
+          # API (nvtx3/nvToolsExt.h) that TransformerEngine includes from
+          # common/nvtx.h. profiler-api ships cuda_profiler_api.h, which apex
+          # and TransformerEngine megatron softmax kernels include (even though
+          # they don't call the profiler API). cublas, cusolver, cusparse,
+          # curand and cufft are NOT: NVIDIA has only ever published these as
+          # "lib<name>-X-Y" / "lib<name>-dev-X-Y" - there is no "cuda-cublas-X-Y"
+          # etc. on any CUDA version - so they must go through
+          # non-cuda-sub-packages (no prefix added) instead, with both the
+          # runtime and -dev (headers) package requested.
+          sub-packages: '["nvcc", "cudart", "nvrtc", "nvrtc-dev", "nvtx", "profiler-api"]'
           non-cuda-sub-packages: '["libcublas", "libcublas-dev", "libcusolver", "libcusolver-dev", "libcusparse", "libcusparse-dev", "libcurand", "libcurand-dev", "libcufft", "libcufft-dev"]'
 
       - name: Install cuDNN

@@ -15,6 +15,8 @@ pip install -q "scikit-build-core>=0.10" wheel uv ninja setuptools numpy
 
 export CMAKE_BUILD_PARALLEL_LEVEL="${MAX_JOBS}"
 
+ensure_cuda_nvrtc_for_cmake
+
 uv build --wheel --no-build-isolation -Cbuild-dir=build .
 ./rename_wheels.sh
 
