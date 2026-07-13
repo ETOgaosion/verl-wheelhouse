@@ -30,7 +30,6 @@ jobs:
 
   build:
     needs: compute-matrix
-    timeout-minutes: ${{ matrix.job_timeout_minutes }}
     strategy:
       fail-fast: false
       matrix:
@@ -53,3 +52,4 @@ jobs:
       max-jobs: ${{ matrix.max_jobs }}
       extra-env: ${{ matrix.extra_env }}
       build-timeout: ${{ matrix.build_timeout }}
+      job-timeout-minutes: ${{ matrix.job_timeout_minutes }}

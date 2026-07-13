@@ -71,6 +71,11 @@ on:
         required: false
         type: string
         default: "5h"
+      job-timeout-minutes:
+        description: "GitHub Actions job timeout for the whole build job"
+        required: false
+        type: number
+        default: 360
       upload-to-release:
         required: false
         type: boolean
@@ -92,6 +97,7 @@ jobs:
   build:
     name: "${{ inputs.component }} (cuda${{ inputs.cuda-version }}-py${{ inputs.python-version }}-torch${{ inputs.torch-version }})"
     runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.job-timeout-minutes }}
     steps:
       - name: Checkout verl-wheelhouse
         uses: actions/checkout@v5
