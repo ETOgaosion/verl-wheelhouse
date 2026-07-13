@@ -72,6 +72,11 @@ verl_reference_versions:
 # runs_on:         GitHub Actions runner label. A plain field here (rather
 #                  than a workflow constant) so self-hosted/larger runners
 #                  are a one-line edit away.
+# build_timeout:   wall-clock budget for the compile step (e.g. 5h, 10h).
+# job_timeout_minutes: GitHub Actions job timeout for the whole build job;
+#                  must exceed build_timeout plus setup/cache-save overhead.
+#                  Standard ubuntu-24.04 runners cap at 360 min; use a larger
+#                  or self-hosted runner when build_timeout exceeds ~5h45m.
 # extra_env:       additional build-script-specific environment variables.
 components:
   flash-attention:
@@ -122,6 +127,8 @@ components:
     torch_cuda_arch_list: null # sgl-kernel hardcodes its own gencode flags
     requires_cudnn: false
     max_jobs: 1
+    build_timeout: 10h
+    job_timeout_minutes: 660 # 11h job cap: 10h build + setup/cache-save headroom
     runs_on: ubuntu-24.04
     extra_env: {}
 
@@ -132,6 +139,8 @@ components:
     torch_cuda_arch_list: "7.5;8.0;8.6;8.9;9.0;10.0;12.0"
     requires_cudnn: false
     max_jobs: 1
+    build_timeout: 10h
+    job_timeout_minutes: 660 # 11h job cap: 10h build + setup/cache-save headroom
     runs_on: ubuntu-24.04
     extra_env:
       NVCC_THREADS: "2"

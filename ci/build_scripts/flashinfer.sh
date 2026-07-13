@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Builds all three flashinfer wheels: the core JIT package, the prebuilt
-# cubin package, and the AOT-compiled jit-cache package (the only one of the
-# three that actually compiles CUDA kernels ahead of time). Run with CWD =
-# the flashinfer submodule checkout, which contains the flashinfer-cubin/
-# and flashinfer-jit-cache/ subprojects.
+# Builds flashinfer wheels for the wheelhouse:
+#   - flashinfer-python: compiled from the pinned flashinfer submodule checkout
+#   - flashinfer-cubin:    prebuilt wheel from https://flashinfer.ai/whl
+#   - flashinfer-jit-cache: prebuilt wheel from https://flashinfer.ai/whl/cu<XY>
+#
+# Mirrors sglang/docker/Dockerfile "PARALLEL STAGE 3: FlashInfer Cache" and verl's
+# Dockerfiles: cubin is CUDA-version-agnostic; jit-cache is fetched from the
+# CUDA-specific flashinfer.ai index.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # shellcheck source=ci/build_scripts/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
@@ -20,42 +22,27 @@ echo "::group::flashinfer-python (JIT core wheel)"
 python -m build --wheel --outdir dist .
 echo "::endgroup::"
 
-# flashinfer-cubin and flashinfer-jit-cache use --no-isolation so pip keeps
-# the workflow-pinned torch instead of pulling one from PyPI. That skips the
-# automatic install of [build-system].requires; install those deps explicitly
-# (see flashinfer-cubin/pyproject.toml and flashinfer-jit-cache/pyproject.toml).
-pip install -q \
-  "setuptools>=77" "packaging>=24" filelock \
-  "apache-tvm-ffi>=0.1.6,!=0.1.8,!=0.1.8.post0,<0.2" \
-  nvidia-ml-py requests tqdm
+FLASHINFER_VERSION="$(tr -d '[:space:]' < version.txt)"
+FLASHINFER_CU_INDEX="$(flashinfer_jit_cache_cu_index "${CUDA_VERSION}")"
+FLASHINFER_CUBIN_INDEX="https://flashinfer.ai/whl"
+FLASHINFER_JIT_CACHE_INDEX="https://flashinfer.ai/whl/${FLASHINFER_CU_INDEX}"
 
-export FLASHINFER_CUBIN_DIR="$(pwd)/flashinfer-cubin/flashinfer_cubin/cubins"
-export FLASHINFER_LOGGING_LEVEL="${FLASHINFER_LOGGING_LEVEL:-WARNING}"
+echo "flashinfer version=${FLASHINFER_VERSION} cuda=${CUDA_VERSION} jit-cache index=${FLASHINFER_JIT_CACHE_INDEX}"
 
-echo "::group::Download flashinfer cubins"
-python "${REPO_ROOT}/ci/download_flashinfer_cubins.py" \
-  --flashinfer-root "$(pwd)" \
-  --cubin-dir "${FLASHINFER_CUBIN_DIR}"
-export FLASHINFER_CUBINS_PRELOADED=1
+echo "::group::flashinfer-cubin (prebuilt wheel)"
+download_flashinfer_wheel \
+  "flashinfer-cubin" \
+  "${FLASHINFER_VERSION}" \
+  "${FLASHINFER_CUBIN_INDEX}" \
+  dist
 echo "::endgroup::"
 
-# Tell the PEP 517 backend to skip re-downloading during wheel packaging.
-export PYTHONPATH="${REPO_ROOT}/ci${PYTHONPATH:+:${PYTHONPATH}}"
-
-echo "::group::flashinfer-cubin (package wheel)"
-(
-  cd flashinfer-cubin
-  python -m build --no-isolation --wheel --outdir ../dist .
-)
-echo "::endgroup::"
-
-echo "::group::flashinfer-jit-cache (AOT compile)"
-(
-  cd flashinfer-jit-cache
-  export FLASHINFER_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
-  export MAX_JOBS="${MAX_JOBS}"
-  python -m build --no-isolation --wheel --outdir ../dist .
-)
+echo "::group::flashinfer-jit-cache (prebuilt wheel)"
+download_flashinfer_wheel \
+  "flashinfer-jit-cache" \
+  "${FLASHINFER_VERSION}" \
+  "${FLASHINFER_JIT_CACHE_INDEX}" \
+  dist
 echo "::endgroup::"
 
 echo "Built wheels:"

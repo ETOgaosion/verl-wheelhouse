@@ -66,6 +66,11 @@ on:
         required: false
         type: string
         default: "{}"
+      build-timeout:
+        description: "Wall-clock budget for the build step (e.g. 5h, 10h); keep below job_timeout_minutes so cache-save steps can run"
+        required: false
+        type: string
+        default: "5h"
       upload-to-release:
         required: false
         type: boolean
@@ -200,15 +205,6 @@ jobs:
             rm -f build-cache.tar
           fi
 
-      - name: Restore flashinfer cubin cache
-        if: inputs.component == 'flashinfer'
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ inputs.path }}/flashinfer-cubin/flashinfer_cubin/cubins
-          key: flashinfer-cubins-${{ inputs.ref }}
-          restore-keys: |
-            flashinfer-cubins-
-
       - name: Build wheel
         id: build_wheel
         working-directory: ${{ inputs.path }}
@@ -225,10 +221,10 @@ jobs:
           EXTRA_ENV: ${{ inputs.extra-env }}
         run: |
           set +e
-          # GitHub Actions jobs are capped at 6h; stop safely with time to
-          # spare so the "save build cache" step below can still run and a
-          # re-run of this workflow can resume instead of starting cold.
-          timeout 5h bash "${GITHUB_WORKSPACE}/ci/build_scripts/${{ inputs.builder }}.sh"
+          # Stop safely with time to spare so the "save build cache" step below
+          # can still run and a re-run of this workflow can resume instead of
+          # starting cold.
+          timeout ${{ inputs.build-timeout }} bash "${GITHUB_WORKSPACE}/ci/build_scripts/${{ inputs.builder }}.sh"
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Save resumable build cache (on interrupt)
@@ -246,7 +242,7 @@ jobs:
       - name: Fail if build did not finish in time
         if: steps.build_wheel.outputs.exit_code == '124'
         run: |
-          echo "::error::${{ inputs.component }} did not finish within the 5h budget. A resumable build cache was saved - re-run this workflow to continue from where it left off."
+          echo "::error::${{ inputs.component }} did not finish within the ${{ inputs.build-timeout }} budget. A resumable build cache was saved - re-run this workflow to continue from where it left off."
           exit 1
 
       - name: Fail if build was killed (OOM or runner interrupt)
@@ -258,13 +254,6 @@ jobs:
       - name: Fail on build error
         if: steps.build_wheel.outputs.exit_code != '0' && !contains(fromJSON('["124", "137", "143"]'), steps.build_wheel.outputs.exit_code)
         run: exit ${{ steps.build_wheel.outputs.exit_code }}
-
-      - name: Save flashinfer cubin cache
-        if: inputs.component == 'flashinfer' && steps.build_wheel.outputs.exit_code == '0'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ inputs.path }}/flashinfer-cubin/flashinfer_cubin/cubins
-          key: flashinfer-cubins-${{ inputs.ref }}
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4

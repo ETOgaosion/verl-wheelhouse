@@ -104,6 +104,8 @@ def build_matrix_entries(versions: Dict[str, Any], component: str) -> List[Dict[
                 "torch_cuda_arch_list": cfg.get("torch_cuda_arch_list") or "",
                 "requires_cudnn": "true" if cfg.get("requires_cudnn") else "false",
                 "max_jobs": str(cfg.get("max_jobs", 1)),
+                "build_timeout": str(cfg.get("build_timeout", "5h")),
+                "job_timeout_minutes": int(cfg.get("job_timeout_minutes", 360)),
                 # Already a JSON *string*; the calling workflow passes it
                 # straight through to _build.yml's extra-env input (do not
                 # re-encode it with toJSON() in the workflow, or it will be

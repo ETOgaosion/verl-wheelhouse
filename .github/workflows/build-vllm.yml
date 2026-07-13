@@ -35,6 +35,7 @@ jobs:
 
   build:
     needs: compute-matrix
+    timeout-minutes: ${{ matrix.job_timeout_minutes }}
     strategy:
       fail-fast: false
       matrix:
@@ -56,6 +57,7 @@ jobs:
       requires-cudnn: ${{ matrix.requires_cudnn }}
       max-jobs: ${{ matrix.max_jobs }}
       extra-env: ${{ matrix.extra_env }}
+      build-timeout: ${{ matrix.build_timeout }}
       upload-to-release: ${{ github.event_name == 'push' }}
       release-version: ${{ matrix.release_tag }}
 
