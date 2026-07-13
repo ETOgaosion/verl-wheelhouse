@@ -15,7 +15,16 @@ export FLASH_ATTENTION_FORCE_BUILD=TRUE
 export FLASH_ATTENTION_FORCE_CXX11_ABI="${CXX11_ABI}"
 export FLASH_ATTN_CUDA_ARCHS
 FLASH_ATTN_CUDA_ARCHS="$(arch_list_strip_dots "${TORCH_CUDA_ARCH_LIST}")"
-export MAX_JOBS="${MAX_JOBS}"
+
+# Limit parallel nvcc invocations on newer CUDA toolkits — mirrors
+# flash-attention/.github/workflows/_build.yml. With MAX_JOBS>1 on GitHub's
+# 7 GB runners, nvcc 12.9+ routinely OOM-kills the build (exit 137/143).
+cuda_compact="$(echo "${CUDA_VERSION}" | cut -d. -f1,2 | tr -d '.')"
+if [ "${cuda_compact}" = "129" ] || [ "${cuda_compact}" = "130" ] || [ "${cuda_compact}" = "132" ]; then
+  export MAX_JOBS=1
+else
+  export MAX_JOBS="${MAX_JOBS}"
+fi
 export NVCC_THREADS="${NVCC_THREADS:-2}"
 
 python setup.py bdist_wheel --dist-dir=dist
