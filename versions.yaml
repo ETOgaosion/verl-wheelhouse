@@ -128,7 +128,7 @@ components:
     builder: sgl_kernel
     torch_cuda_arch_list: null # sgl-kernel hardcodes its own gencode flags
     requires_cudnn: false
-    max_jobs: 2
+    max_jobs: 1
     build_timeout: 10h
     job_timeout_minutes: 660 # 11h job cap: 10h build + setup/cache-save headroom
     runs_on: ubuntu-24.04
