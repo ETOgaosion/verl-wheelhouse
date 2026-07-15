@@ -27,10 +27,10 @@ on:
         required: true
         type: string
       runs-on:
-        description: "Runner to build on"
+        description: "JSON-encoded GitHub Actions runner label or required-label list"
         required: false
         type: string
-        default: ubuntu-24.04
+        default: '"ubuntu-24.04"'
       cuda-version:
         required: true
         type: string
@@ -96,7 +96,7 @@ defaults:
 jobs:
   build:
     name: "${{ inputs.component }} (cuda${{ inputs.cuda-version }}-py${{ inputs.python-version }}-torch${{ inputs.torch-version }})"
-    runs-on: ${{ inputs.runs-on }}
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: ${{ inputs.job-timeout-minutes }}
     steps:
       - name: Checkout verl-wheelhouse

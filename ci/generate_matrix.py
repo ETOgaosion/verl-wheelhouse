@@ -94,7 +94,11 @@ def build_matrix_entries(versions: Dict[str, Any], component: str) -> List[Dict[
                 "ref": ref,
                 "release_tag": release_tag(component, ref),
                 "builder": cfg["builder"],
-                "runs_on": cfg["runs_on"],
+                # Reusable-workflow inputs are strings, while GitHub Actions
+                # accepts either a label or a label array for `runs-on`.
+                # Preserve both config forms by sending a JSON-encoded value;
+                # _build.yml restores it with fromJSON().
+                "runs_on": json.dumps(cfg["runs_on"]),
                 "cuda": str(combo["cuda"]),
                 "python": str(combo["python"]),
                 "torch": str(combo["torch"]),
