@@ -11,7 +11,15 @@ source "${SCRIPT_DIR}/common.sh"
 export_extra_env
 install_sgl_kernel_build_deps
 
-pip install -q "scikit-build-core>=0.10" wheel uv ninja setuptools numpy
+# sgl-kernel's CMakeLists.txt calls cmake_policy(SET CMP0169 ...) / CMP0177 ...,
+# which require CMake >= 3.31 (CMP0169 landed in 3.30, CMP0177 in 3.31) even
+# though it only declares cmake_minimum_required(VERSION 3.26). We build with
+# --no-build-isolation below, so scikit-build-core does NOT auto-provision a
+# modern CMake from PyPI - it uses whatever `cmake` is on PATH. On ubuntu-24.04
+# that's the apt CMake 3.28.3, which fails with "Policy CMP0169/CMP0177 is not
+# known to this version of CMake". Pin CMake here to match sgl-kernel's own
+# build recipe (sgl-kernel/Dockerfile installs CMake 3.31.1).
+pip install -q "scikit-build-core>=0.10" "cmake>=3.31,<4" wheel uv ninja setuptools numpy
 
 export CMAKE_BUILD_PARALLEL_LEVEL="${MAX_JOBS}"
 
