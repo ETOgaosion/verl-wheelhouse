@@ -39,8 +39,10 @@ other logic needs to change for routine work.
 
 5. Commit the `versions.yaml` change. Pushing to `main` automatically
    triggers that component's `build-<component>.yml` (its `paths:` filter
-   matches `versions.yaml`) - and, on success, that push also creates (or
-   reuses) that component's own persistent release - tag
+   matches `versions.yaml`). If the target release already has the exact
+   configured CUDA/Python/Torch title and all expected `wheel_packages`, the
+   push skips the redundant build. Otherwise, on success, that push creates
+   (or reuses) the component's own persistent release - tag
    `<component>-<new-ref>`, title `<component> <new-ref> - cu.. py..
    torch..` (see `ci/release_meta.py`) - uploads the new wheel there, and
    republishes the package index, so it's `pip install`-able right away.
@@ -76,6 +78,7 @@ Worked checklist, using a hypothetical `xformers` component as the example:
      path: xformers
      ref: v0.0.29
      builder: xformers
+     wheel_packages: [xformers]
      torch_cuda_arch_list: "8.0;9.0;10.0;12.0"
      requires_cudnn: false
      max_jobs: 2

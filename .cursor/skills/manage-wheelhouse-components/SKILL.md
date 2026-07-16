@@ -39,9 +39,10 @@ Checklist:
 
 - [ ] `git submodule add <url> <path>`
 - [ ] Add a `components:` entry to `versions.yaml` (`path`, `ref`,
-      `builder`, `torch_cuda_arch_list`, `requires_cudnn`, `max_jobs`,
-      `runs_on`, `extra_env`) - follow the schema comments already in that
-      file.
+      `builder`, `wheel_packages`, `torch_cuda_arch_list`, `requires_cudnn`,
+      `max_jobs`, `runs_on`, `extra_env`) - follow the schema comments already
+      in that file. `wheel_packages` must list every distribution the build
+      uploads; push builds use it to detect a complete matching release.
 - [ ] Create `ci/build_scripts/<builder>.sh`. Copy the shape of an existing
       script (`ci/build_scripts/vllm.sh` is a good default): shebang,
       `set -euo pipefail`, source `common.sh`, call `export_extra_env`,

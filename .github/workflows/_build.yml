@@ -133,7 +133,6 @@ jobs:
           git submodule update --init --recursive --depth 1
 
       - name: Free up disk space
-        if: inputs.component != 'vllm' && inputs.component != 'sglang-kernel'
         run: |
           source ci/build_scripts/common.sh
           free_disk_space

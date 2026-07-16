@@ -129,12 +129,12 @@ historical record.
   automatically on pushes to `main` (including PR merges) that touch
   `versions.yaml`, `ci/generate_matrix.py`, `ci/build_scripts/common.sh`, or
   that component's build script.
-- **Every such push publishes, not just builds.** After a successful build,
-  the workflow ensures/updates that component's own release (see above) and
-  uploads the wheel(s) there, then re-runs `publish-index.yml`, so the PEP
-  503 index and `pip install` always reflect the tip of `main` within one
-  workflow run. Manual `workflow_dispatch` runs build but skip publishing,
-  so they're safe to use for testing.
+- On a push, the workflow first checks the component's target release. If its
+  title exactly matches the configured CUDA/Python/Torch matrix and it contains
+  every distribution listed in that component's `wheel_packages`, the build is
+  skipped. Otherwise, a successful build ensures/updates the release, uploads
+  the wheel(s), and re-runs `publish-index.yml`. Manual `workflow_dispatch`
+  runs always build but skip publishing, so they can force a fresh test build.
 - `build-all.yml` builds every component and also runs on a weekly schedule
   as a sanity sweep. It does **not** publish - it's for validating the whole
   matrix still builds cleanly.
