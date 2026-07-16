@@ -95,8 +95,8 @@ arch_list_strip_dots() {
 # ---------------------------------------------------------------------------
 install_sgl_kernel_build_deps() {
   echo "::group::Install sgl-kernel build dependencies"
-  sudo apt-get update
-  sudo apt-get install -y --no-install-recommends \
+  apt-get update
+  apt-get install -y --no-install-recommends \
     libnuma-dev libibverbs-dev libibverbs1 ibverbs-providers ibverbs-utils pkg-config
   echo "::endgroup::"
 }

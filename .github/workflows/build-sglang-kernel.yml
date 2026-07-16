@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
+      has_builds: ${{ steps.matrix.outputs.has_builds }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -31,10 +32,19 @@ jobs:
           python-version: "3.12"
       - run: pip install pyyaml
       - id: matrix
-        run: python3 ci/generate_matrix.py --component sglang-kernel --github-output
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          args=()
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            args+=(--skip-existing-releases --repo "$GITHUB_REPOSITORY")
+          fi
+          python3 ci/generate_matrix.py --component sglang-kernel --github-output "${args[@]}"
 
   build:
     needs: compute-matrix
+    if: needs.compute-matrix.outputs.has_builds == 'true'
     strategy:
       fail-fast: false
       matrix:

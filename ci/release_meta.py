@@ -31,14 +31,7 @@ import json
 import os
 from typing import Any, Dict, List
 
-from generate_matrix import component_names, get_component, load_versions, release_tag
-
-
-def release_title(ref: str, component: str, build_matrix: List[Dict[str, Any]]) -> str:
-    combos = "; ".join(
-        f"cu{combo['cuda']} py{combo['python']} torch{combo['torch']}" for combo in build_matrix
-    )
-    return f"{component} {ref} - {combos}"
+from generate_matrix import component_names, get_component, load_versions, release_tag, release_title
 
 
 def release_notes(component: str, ref: str) -> str:

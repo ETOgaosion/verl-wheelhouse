@@ -30,9 +30,10 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -67,6 +68,103 @@ def release_tag(component: str, ref: str) -> str:
     and the tag _build.yml uploads wheels to always match.
     """
     return f"{component}-{sanitize_ref(ref)}"
+
+
+def release_title(ref: str, component: str, build_matrix: List[Dict[str, Any]]) -> str:
+    """Describe the dependency combinations covered by a component release."""
+    combos = "; ".join(
+        f"cu{combo['cuda']} py{combo['python']} torch{combo['torch']}" for combo in build_matrix
+    )
+    return f"{component} {ref} - {combos}"
+
+
+def normalize_package_name(name: str) -> str:
+    """Apply PEP 503 package-name normalization."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def release_covers_component(
+    versions: Dict[str, Any], component: str, release: Dict[str, Any]
+) -> Tuple[bool, str]:
+    """Check that a release has the exact dependency title and all expected wheels."""
+    cfg = get_component(versions, component)
+    ref = str(cfg["ref"])
+    expected_title = release_title(ref, component, versions["build_matrix"])
+    actual_title = release.get("name")
+    if actual_title != expected_title:
+        return False, f"title mismatch: expected {expected_title!r}, found {actual_title!r}"
+
+    configured_packages = cfg.get("wheel_packages")
+    if not isinstance(configured_packages, list) or not configured_packages:
+        return False, "wheel_packages is not configured"
+
+    required_packages = {normalize_package_name(str(name)) for name in configured_packages}
+    released_packages = {
+        normalize_package_name(str(asset["name"]).split("-", 1)[0])
+        for asset in release.get("assets", [])
+        if isinstance(asset, dict)
+        and isinstance(asset.get("name"), str)
+        and asset["name"].endswith(".whl")
+    }
+    missing_packages = sorted(required_packages - released_packages)
+    if missing_packages:
+        return False, f"missing wheel package(s): {', '.join(missing_packages)}"
+
+    return True, "exact dependency title and all expected wheel packages are present"
+
+
+def inspect_release(repo: str, tag: str) -> Optional[Dict[str, Any]]:
+    """Read the release metadata needed for skip detection with the GitHub CLI."""
+    try:
+        result = subprocess.run(
+            ["gh", "release", "view", tag, "--repo", repo, "--json", "name,assets"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        print(f"Could not inspect release {tag!r}: {exc}; keeping its build.", file=sys.stderr)
+        return None
+
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"gh exited with status {result.returncode}"
+        print(f"Could not inspect release {tag!r}: {detail}; keeping its build.", file=sys.stderr)
+        return None
+
+    try:
+        release = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        print(
+            f"Could not parse release {tag!r}: {exc}; keeping its build.",
+            file=sys.stderr,
+        )
+        return None
+    if not isinstance(release, dict):
+        print(f"Release {tag!r} returned invalid metadata; keeping its build.", file=sys.stderr)
+        return None
+    return release
+
+
+def components_needing_build(
+    versions: Dict[str, Any], components: List[str], repo: str
+) -> List[str]:
+    """Drop components already represented by complete, dependency-matching releases."""
+    needed = []
+    for component in components:
+        cfg = get_component(versions, component)
+        tag = release_tag(component, str(cfg["ref"]))
+        release = inspect_release(repo, tag)
+        if release is None:
+            needed.append(component)
+            continue
+
+        covered, reason = release_covers_component(versions, component, release)
+        if covered:
+            print(f"Skipping {component}: release {tag!r} {reason}.", file=sys.stderr)
+        else:
+            print(f"Keeping {component}: release {tag!r} has {reason}.", file=sys.stderr)
+            needed.append(component)
+    return needed
 
 
 def component_names(versions: Dict[str, Any]) -> List[str]:
@@ -142,7 +240,17 @@ def main() -> None:
     parser.add_argument(
         "--github-output",
         action="store_true",
-        help="Also write matrix=<json> to $GITHUB_OUTPUT, for use in a workflow step.",
+        help="Also write matrix=<json> and has_builds=<true|false> to $GITHUB_OUTPUT.",
+    )
+    parser.add_argument(
+        "--skip-existing-releases",
+        action="store_true",
+        help="Omit components whose target release already has matching dependencies and wheels.",
+    )
+    parser.add_argument(
+        "--repo",
+        default=os.environ.get("GITHUB_REPOSITORY"),
+        help="GitHub owner/repo used with --skip-existing-releases (defaults to $GITHUB_REPOSITORY).",
     )
     args = parser.parse_args()
 
@@ -158,6 +266,11 @@ def main() -> None:
         get_component(versions, args.component)  # validates, raises a clear SystemExit if unknown
         components = [args.component]
 
+    if args.skip_existing_releases:
+        if not args.repo:
+            parser.error("--skip-existing-releases requires --repo or $GITHUB_REPOSITORY")
+        components = components_needing_build(versions, components, args.repo)
+
     matrix = build_full_matrix(versions, components)
     payload = json.dumps(matrix)
     print(payload)
@@ -168,6 +281,7 @@ def main() -> None:
             raise SystemExit("--github-output requires $GITHUB_OUTPUT to be set")
         with open(github_output, "a", encoding="utf-8") as fh:
             fh.write(f"matrix={payload}\n")
+            fh.write(f"has_builds={'true' if matrix else 'false'}\n")
 
 
 if __name__ == "__main__":

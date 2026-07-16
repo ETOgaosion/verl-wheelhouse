@@ -52,6 +52,10 @@ verl_reference_versions:
 #                  whatever commit the submodule pointer in this repo
 #                  happens to be on (see .github/workflows/_build.yml).
 # builder:         name of ci/build_scripts/<builder>.sh to run.
+# wheel_packages:  distribution names expected in the component's release.
+#                  Push builds are skipped only when every listed package has
+#                  a wheel and the release title matches the target dependency
+#                  matrix exactly.
 # torch_cuda_arch_list: canonical arch list, e.g. "8.0;9.0;10.0;12.0" (or
 #                  null if the component hardcodes its own gencode flags).
 #                  ci/build_scripts/common.sh converts this per-component as
@@ -83,6 +87,7 @@ components:
     path: flash-attention
     ref: v2.8.3 # FLASH_ATTENTION_VERSION in both verl Dockerfiles
     builder: flash_attention
+    wheel_packages: [flash-attn]
     torch_cuda_arch_list: "8.0;9.0;10.0;12.0"
     requires_cudnn: false
     # CUDA 12.9+ nvcc routinely OOM-kills GitHub's 7 GB runners at max_jobs>1
@@ -95,6 +100,7 @@ components:
     path: apex
     ref: master # both verl Dockerfiles build unpinned git+https://github.com/NVIDIA/apex.git (NVIDIA/apex's default branch is "master", not "main")
     builder: apex
+    wheel_packages: [apex]
     torch_cuda_arch_list: "7.5;8.0;8.6;9.0;10.0;11.0;12.0"
     requires_cudnn: false
     max_jobs: 2
@@ -105,6 +111,7 @@ components:
     path: TransformerEngine
     ref: v2.15 # TRANSFORMER_ENGINE_VERSION in both verl Dockerfiles
     builder: transformer_engine
+    wheel_packages: [transformer-engine]
     torch_cuda_arch_list: "8.0;9.0;10.0"
     requires_cudnn: true
     max_jobs: 1
@@ -116,6 +123,7 @@ components:
     path: flashinfer
     ref: v0.6.13 # matches flashinfer-python/-cubin pins in vllm's requirements/cuda.txt
     builder: flashinfer
+    wheel_packages: [flashinfer-python, flashinfer-cubin, flashinfer-jit-cache]
     torch_cuda_arch_list: "8.0 9.0a 10.0a 12.0f"
     requires_cudnn: false
     max_jobs: 2
@@ -126,6 +134,7 @@ components:
     path: sglang/sgl-kernel
     ref: v0.5.12 # matches `FROM lmsysorg/sglang:v0.5.12` in verl's sglang Dockerfile
     builder: sgl_kernel
+    wheel_packages: [sglang-kernel]
     torch_cuda_arch_list: null # sgl-kernel hardcodes its own gencode flags
     requires_cudnn: false
     max_jobs: 32
@@ -138,6 +147,7 @@ components:
     path: vllm
     ref: v0.23.0 # VLLM_VERSION in verl's vllm Dockerfile
     builder: vllm
+    wheel_packages: [vllm]
     torch_cuda_arch_list: "7.5;8.0;8.6;8.9;9.0;10.0;12.0"
     requires_cudnn: false
     max_jobs: 32
