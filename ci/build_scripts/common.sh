@@ -203,6 +203,71 @@ ensure_cuda_cccl_include_path() {
 }
 
 # ---------------------------------------------------------------------------
+# ensure_python_include_path: vllm's tools/build_deepgemm_C.py compiles
+# DeepGEMM's pybind11 `_C` extension with a bare `g++` invocation whose only
+# Python header dir comes from the target interpreter's
+# sysconfig.get_config_var('INCLUDEPY') (see cmake/external_projects/
+# deepgemm.cmake). GitHub's actions/setup-python CPython builds bake an
+# absolute INCLUDEPY of /opt/hostedtoolcache/Python/<ver>/x64/include/... into
+# _sysconfigdata at build time; on self-hosted runners (where the tool cache
+# actually lives under /actions-runner/_work/_tool/...) that baked path does
+# not exist, so g++ dies with "fatal error: Python.h: No such file or
+# directory" even though the headers ship right next to the interpreter.
+# sys.prefix/base_prefix - and therefore sysconfig.get_path('include') - are
+# recomputed from the interpreter's on-disk location at startup, so they still
+# resolve correctly; export that real, existing include dir on
+# CPLUS_INCLUDE_PATH/C_INCLUDE_PATH so g++ finds Python.h regardless of the
+# stale -I INCLUDEPY flag build_deepgemm_C.py passes.
+#
+# Prefer-first-existing order: get_path("include") (derived from the runtime-
+# resolved sys.base_prefix, and normally correct) > base_prefix/prefix guesses
+# > INCLUDEPY (the stale build-time value, kept last purely as a fallback). The
+# probe runs via `python -c` as a bash single-quoted string, so its Python body
+# uses double quotes only - an apostrophe there would prematurely close the
+# shell string (and a heredoc nested in $() mis-parses the same way).
+# ---------------------------------------------------------------------------
+ensure_python_include_path() {
+  local py_inc env_var current
+  py_inc="$(python -c '
+import os, sys, sysconfig
+ver = sysconfig.get_python_version()
+abi = sysconfig.get_config_var("abiflags") or ""
+candidates = [
+    sysconfig.get_path("include"),
+    os.path.join(sys.base_prefix, "include", "python" + ver + abi),
+    os.path.join(sys.prefix, "include", "python" + ver + abi),
+    sysconfig.get_config_var("INCLUDEPY"),
+]
+seen = set()
+for c in candidates:
+    if not c or c in seen:
+        continue
+    seen.add(c)
+    if os.path.exists(os.path.join(c, "Python.h")):
+        print(c)
+        break
+')"
+
+  if [ -z "${py_inc}" ]; then
+    echo "::warning::Could not locate a Python include dir containing Python.h; DeepGEMM _C build may fail" >&2
+    return 0
+  fi
+
+  for env_var in CPLUS_INCLUDE_PATH C_INCLUDE_PATH; do
+    current="${!env_var:-}"
+    if [[ ":${current}:" == *":${py_inc}:"* ]]; then
+      continue
+    fi
+    if [ -n "${current}" ]; then
+      export "${env_var}=${py_inc}:${current}"
+    else
+      export "${env_var}=${py_inc}"
+    fi
+  done
+  echo "Prepended ${py_inc} to CPLUS_INCLUDE_PATH and C_INCLUDE_PATH"
+}
+
+# ---------------------------------------------------------------------------
 # ensure_cuda_nvrtc_for_cmake: CMake FindCUDAToolkit looks for an unversioned
 # libnvrtc.so, but the cuda-nvrtc apt sub-package on GitHub runners only ships
 # libnvrtc.so.<major> (see vllm-project/vllm#29669). Point CMake at the

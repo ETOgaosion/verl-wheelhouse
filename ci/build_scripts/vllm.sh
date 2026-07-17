@@ -29,6 +29,11 @@ export NVCC_THREADS="${NVCC_THREADS:-2}"
 export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
 
 ensure_cuda_nvrtc_for_cmake
+# DeepGEMM's `_C` extension is compiled by tools/build_deepgemm_C.py with a
+# raw g++ call that -I's the interpreter's baked (and, on self-hosted runners,
+# nonexistent) sysconfig INCLUDEPY; put the real Python include dir on the
+# compiler's search path so <Python.h> resolves.
+ensure_python_include_path
 
 python setup.py bdist_wheel --dist-dir=dist
 
