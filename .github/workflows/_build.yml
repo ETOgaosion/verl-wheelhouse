@@ -126,11 +126,23 @@ jobs:
           # currently pinned just to get a working .git + origin remote),
           # then fetch and check out the ref versions.yaml actually pins.
           # This decouples version bumps from the submodule pointer commit.
-          git submodule update --init --depth 1 -- "$submodule_path"
+          #
+          # --force throughout: self-hosted runners (see runs_on in
+          # versions.yaml, e.g. vllm/sglang-kernel) reuse their workspace
+          # across runs, and build scripts rewrite tracked files *inside* the
+          # submodule - e.g. vllm.sh runs use_existing_torch.py, which strips
+          # torch== pins out of pyproject.toml and requirements/**/*.{txt,in}.
+          # The checkout above runs with submodules:false, so it only cleans
+          # the superproject and never descends into the submodule's working
+          # tree; a previous build's edits therefore survive on disk and make
+          # an unforced checkout abort with "Your local changes to the
+          # following files would be overwritten by checkout". Forcing the
+          # checkout discards that leftover state so every build starts clean.
+          git submodule update --init --force --depth 1 -- "$submodule_path"
           cd "$submodule_path"
           git fetch --depth 1 origin "${{ inputs.ref }}"
-          git checkout --detach FETCH_HEAD
-          git submodule update --init --recursive --depth 1
+          git checkout --detach --force FETCH_HEAD
+          git submodule update --init --recursive --force --depth 1
 
       - name: Free up disk space
         run: |
