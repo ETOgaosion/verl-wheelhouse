@@ -145,7 +145,7 @@ components:
 
   vllm:
     path: vllm
-    ref: v0.23.0 # VLLM_VERSION in verl's vllm Dockerfile
+    ref: v0.24.0 # ahead of verl's vllm Dockerfile (VLLM_VERSION=0.23.0 as of verl main); arch list & requirements/build/cuda.txt unchanged from v0.23.0
     builder: vllm
     wheel_packages: [vllm]
     torch_cuda_arch_list: "7.5;8.0;8.6;8.9;9.0;10.0;12.0"
