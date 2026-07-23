@@ -35,6 +35,25 @@ ensure_cuda_nvrtc_for_cmake
 # compiler's search path so <Python.h> resolves.
 ensure_python_include_path
 
+# Pin the wheel's version to the ref we were told to build.
+#
+# vllm derives its version from git tags via setuptools-scm (see its
+# pyproject.toml's `[tool.setuptools_scm]`). But _build.yml checks the source
+# out with a shallow, tag-less fetch (`git fetch --depth 1 origin <ref>` +
+# `checkout FETCH_HEAD`), so setuptools-scm can't see the pinned tag and falls
+# back to its default `0.1.devN`; use_existing_torch.py above also dirties the
+# tree, tacking on a `+dYYYYMMDD` local segment. The result was mislabeled
+# wheels like `vllm-0.1.dev1+gee0da84ab.d20260720` that don't satisfy
+# `pip install vllm==0.24.0`. vllm's setup.py exposes an explicit
+# VLLM_VERSION_OVERRIDE hook (get_vllm_version() feeds it to setuptools-scm and
+# returns it verbatim, before any device-suffix mangling), so set it from REF
+# (exported by _build.yml). Only do this for version-like tags (e.g. v0.24.0);
+# leave branch/SHA refs to setuptools-scm.
+if [[ "${REF:-}" =~ ^v?[0-9]+\.[0-9] ]]; then
+  export VLLM_VERSION_OVERRIDE="${REF#v}"
+  echo "Pinned VLLM_VERSION_OVERRIDE=${VLLM_VERSION_OVERRIDE} (from REF=${REF})"
+fi
+
 python setup.py bdist_wheel --dist-dir=dist
 
 echo "Built wheels:"

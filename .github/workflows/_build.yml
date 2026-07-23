@@ -224,11 +224,25 @@ jobs:
             rm -f build-cache.tar
           fi
 
+      - name: Remove stale wheel output from previous runs
+        working-directory: ${{ inputs.path }}
+        run: |
+          # Self-hosted runners (e.g. vllm, sglang-kernel) reuse their workspace
+          # across runs, and the build scripts emit into dist/ without clearing
+          # it first. Without this, a previous - possibly different-version -
+          # build's wheel lingers in dist/ and gets swept into the "Upload
+          # wheel(s) to release" step below (which globs dist/*.whl), e.g. a
+          # stale vllm-0.23.x wheel leaking into the vllm-v0.24.0 release. dist/
+          # holds only final build output, so removing it never affects the
+          # resumable build cache (that lives in build/).
+          rm -rf dist
+
       - name: Build wheel
         id: build_wheel
         working-directory: ${{ inputs.path }}
         env:
           COMPONENT: ${{ inputs.component }}
+          REF: ${{ inputs.ref }}
           CUDA_VERSION: ${{ inputs.cuda-version }}
           PYTHON_VERSION: ${{ inputs.python-version }}
           TORCH_VERSION: ${{ inputs.torch-version }}
