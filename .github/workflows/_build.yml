@@ -85,6 +85,19 @@ on:
         required: false
         type: string
         default: ""
+    secrets:
+      BYTED_PROXY:
+        description: >-
+          Optional HTTP(S) egress proxy URL for self-hosted runners (e.g.
+          vllm/sglang). When set, GitHub-bound transfers on self-hosted runners
+          - workflow artifact upload, release asset upload, and the Actions
+          resumable build cache - are routed through it, since those runners'
+          direct egress to GitHub is slow and prone to hanging. Only forwarded
+          by the vllm/sglang workflows (and the build-all/release sweeps that
+          also build them). The steps below gate on
+          runner.environment == 'self-hosted', so it is always a no-op on
+          GitHub-hosted runners even if forwarded.
+        required: false
 
 permissions:
   contents: write
@@ -209,6 +222,11 @@ jobs:
 
       - name: Restore resumable build cache
         uses: actions/cache/restore@v4
+        env:
+          # Self-hosted runners (vllm/sglang) reach GitHub via BYTED_PROXY;
+          # empty = direct connection on GitHub-hosted runners / when unset.
+          HTTP_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
+          HTTPS_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
         with:
           path: ${{ inputs.path }}/build-cache.tar
           key: never-match-${{ github.run_id }}
@@ -268,6 +286,11 @@ jobs:
       - name: Upload resumable build cache (on interrupt)
         if: always() && contains(fromJSON('["124", "137", "143"]'), steps.build_wheel.outputs.exit_code)
         uses: actions/cache/save@v4
+        env:
+          # Self-hosted runners (vllm/sglang) reach GitHub via BYTED_PROXY;
+          # empty = direct connection on GitHub-hosted runners / when unset.
+          HTTP_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
+          HTTPS_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
         with:
           path: ${{ inputs.path }}/build-cache.tar
           key: build-cache-${{ inputs.component }}-${{ inputs.cuda-version }}-${{ inputs.python-version }}-${{ inputs.torch-version }}-${{ github.run_id }}
@@ -290,6 +313,12 @@ jobs:
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
+        env:
+          # Self-hosted runners (vllm/sglang) reach GitHub (and its Azure blob
+          # artifact backend) via BYTED_PROXY; empty = direct connection on
+          # GitHub-hosted runners / when unset.
+          HTTP_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
+          HTTPS_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
         with:
           name: wheel-${{ inputs.component }}-cu${{ inputs.cuda-version }}-py${{ inputs.python-version }}-torch${{ inputs.torch-version }}
           path: ${{ inputs.path }}/dist/*.whl
@@ -299,6 +328,10 @@ jobs:
         if: inputs.upload-to-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Self-hosted runners (vllm/sglang) reach GitHub via BYTED_PROXY;
+          # empty = direct connection on GitHub-hosted runners / when unset.
+          HTTP_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
+          HTTPS_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
         run: |
           pip install pyyaml
           python3 ci/release_meta.py --component "${{ inputs.component }}" > release-meta.json
@@ -322,6 +355,10 @@ jobs:
         if: inputs.upload-to-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Self-hosted runners (vllm/sglang) reach GitHub via BYTED_PROXY;
+          # empty = direct connection on GitHub-hosted runners / when unset.
+          HTTP_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
+          HTTPS_PROXY: ${{ runner.environment == 'self-hosted' && secrets.BYTED_PROXY || '' }}
         run: |
           gh release upload "${{ inputs.release-version }}" ${{ inputs.path }}/dist/*.whl \
             --repo "${{ github.repository }}" --clobber

@@ -56,6 +56,8 @@ jobs:
       job-timeout-minutes: ${{ matrix.job_timeout_minutes }}
       upload-to-release: true
       release-version: ${{ matrix.release_tag }}
+    secrets:
+      BYTED_PROXY: ${{ secrets.BYTED_PROXY }}
 
   publish-index:
     needs: build

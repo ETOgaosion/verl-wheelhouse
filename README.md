@@ -185,6 +185,17 @@ Or install a specific wheel directly from that component's
   field), so pointing a component at a bigger/self-hosted runner (and
   bumping its `max_jobs` back up towards verl's own `128`/`256`) is a
   one-line edit, no workflow changes required.
+- **Self-hosted runners can route GitHub transfers through a proxy.** The
+  `vllm`/`sglang` builds run on self-hosted runners whose direct egress to
+  GitHub is slow and prone to hanging, which stalls the wheel/artifact and
+  release uploads (and the resumable build cache). Set an optional
+  `BYTED_PROXY` repository secret to an HTTP(S) egress proxy URL and those
+  transfers are routed through it. It only takes effect on self-hosted
+  runners (`runner.environment == 'self-hosted'`); GitHub-hosted builds
+  always use a direct connection, so leaving the secret unset is a no-op.
+  Only the self-hosted components' workflows forward it to the reusable
+  `_build.yml`: `build-vllm.yml`, `build-sglang.yml`, and the
+  `build-all.yml`/`release.yml` sweeps that also build vllm/sglang.
 - **The `sglang` component ships two wheels in one release.** Only
   `sglang-kernel` (the CUDA extension) is compiled from source - that's the
   CUDA/torch combo upstream PyPI doesn't publish. The main `sglang` package's

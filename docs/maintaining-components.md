@@ -127,6 +127,15 @@ Worked checklist, using a hypothetical `xformers` component as the example:
    `ci/release_meta.py` will automatically compute `xformers`'s own release
    tag/title once its `components:` entry exists in `versions.yaml`.
 
+   `build-vllm.yml` also forwards a `secrets: { BYTED_PROXY: ... }` block to
+   `_build.yml`. That block is only needed for components built on a
+   **self-hosted** runner (like `vllm`/`sglang`), where it routes
+   otherwise-slow GitHub uploads through the optional `BYTED_PROXY` repo
+   secret. Keep it (and set the repo secret) if your new component's
+   `runs_on` is self-hosted; **drop it for a normal `ubuntu-*` component** -
+   `_build.yml`'s `runner.environment == 'self-hosted'` proxy gate is a no-op
+   on GitHub-hosted runners anyway.
+
 5. **Update `README.md`'s component table and repo-layout listing** to
    mention the new component/workflow.
 

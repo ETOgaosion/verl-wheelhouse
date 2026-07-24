@@ -53,3 +53,5 @@ jobs:
       extra-env: ${{ matrix.extra_env }}
       build-timeout: ${{ matrix.build_timeout }}
       job-timeout-minutes: ${{ matrix.job_timeout_minutes }}
+    secrets:
+      BYTED_PROXY: ${{ secrets.BYTED_PROXY }}
