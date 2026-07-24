@@ -25,6 +25,16 @@ install_nccl
 pip install -q pybind11 nvidia-mathdx ninja wheel packaging
 
 export NVTE_FRAMEWORK=pytorch
+
+# Emit a clean release version (e.g. "2.16.1") in the built wheel's filename.
+# Without this, TransformerEngine's build_tools/te_version.py appends the short
+# git commit as a PEP 440 local-version segment (e.g. "2.16.1+c9877beb"), since
+# _build.yml checks the submodule out at a detached commit rather than a tag.
+# NVTE_NO_LOCAL_VERSION suppresses only that local segment - unlike
+# NVTE_RELEASE_BUILD, which would also drop the PyTorch C++ extension and the
+# framework runtime deps that this single-wheel build needs.
+export NVTE_NO_LOCAL_VERSION=1
+
 export NVTE_CUDA_ARCHS
 NVTE_CUDA_ARCHS="$(arch_list_strip_dots "${TORCH_CUDA_ARCH_LIST}")"
 
