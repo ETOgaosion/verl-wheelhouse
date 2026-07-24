@@ -153,7 +153,28 @@ jobs:
           # checkout discards that leftover state so every build starts clean.
           git submodule update --init --force --depth 1 -- "$submodule_path"
           cd "$submodule_path"
-          git fetch --depth 1 origin "${{ inputs.ref }}"
+
+          # Fetch the ref versions.yaml pins, retrying on a transient git bug.
+          # git 2.54.x (currently shipped on ubuntu-24.04 runners) has a
+          # regression where a "git fetch --depth" onto a just-created shallow
+          # clone intermittently aborts with "fatal: shallow file has changed
+          # since we read it" - a spurious race in its shallow-file safety check
+          # (fixed upstream in git 2.55). It is transient, so a fresh retry of
+          # the identical fetch succeeds. Any leftover shallow.lock is removed by
+          # git's own on-exit lockfile cleanup, so retries start clean.
+          # See https://github.com/python/cpython/issues/151365
+          for attempt in 1 2 3 4 5; do
+            if git fetch --depth 1 origin "${{ inputs.ref }}"; then
+              break
+            fi
+            if [ "$attempt" = 5 ]; then
+              echo "::error::git fetch of '${{ inputs.ref }}' failed after 5 attempts" >&2
+              exit 1
+            fi
+            echo "::warning::git fetch attempt ${attempt}/5 failed (transient 'shallow file has changed'?); retrying in 3s..." >&2
+            sleep 3
+          done
+
           git checkout --detach --force FETCH_HEAD
           git submodule update --init --recursive --force --depth 1
 
