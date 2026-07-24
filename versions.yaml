@@ -165,3 +165,22 @@ components:
     runs_on: [self-hosted, Linux, X64]
     extra_env:
       NVCC_THREADS: "2"
+
+  megatron-bridge:
+    # NVIDIA-NeMo/Megatron-Bridge is a pure-Python training/conversion library
+    # (it depends on megatron-core / TransformerEngine at *runtime*, but builds
+    # no CUDA extensions of its own - no setup.py, no ext_modules). The result
+    # is a portable py3-none-any wheel; the build_matrix's CUDA/torch values are
+    # irrelevant to the artifact and only the Python interpreter matters
+    # (upstream pins requires-python ">=3.12,<3.13", matching build_matrix).
+    path: Megatron-Bridge
+    ref: r0.5.0 # NVIDIA-NeMo release branch for the 0.5.x line (moves as patch fixes land, like apex tracks master). Pin a v0.5.x tag instead for a frozen build.
+    builder: megatron_bridge
+    # Distribution name from pyproject's [project].name; the wheel file is
+    # megatron_bridge-<ver>-py3-none-any.whl (normalizes to megatron-bridge).
+    wheel_packages: [megatron-bridge]
+    torch_cuda_arch_list: null # pure-Python wheel: no CUDA gencode flags
+    requires_cudnn: false
+    max_jobs: 1
+    runs_on: ubuntu-24.04
+    extra_env: {}

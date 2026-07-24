@@ -11,6 +11,7 @@ heavy native-extension dependencies of [verl](https://github.com/verl-project/ve
 | [flashinfer](https://github.com/flashinfer-ai/flashinfer) | `flashinfer` | `flashinfer-python`, `flashinfer-cubin`, `flashinfer-jit-cache` |
 | [sglang](https://github.com/sgl-project/sglang) | `sglang/sgl-kernel` | `sglang-kernel` (compiled) + `sglang` (official PyPI wheel rehosted) |
 | [vllm](https://github.com/vllm-project/vllm) | `vllm` | `vllm` |
+| [Megatron-Bridge](https://github.com/NVIDIA-NeMo/Megatron-Bridge) | `Megatron-Bridge` | `megatron-bridge` (pure-Python `py3-none-any` wheel) |
 
 Build commands follow the exact flags used in verl's own
 [`docker/Dockerfile.stable.sglang`](https://github.com/verl-project/verl/blob/main/docker/Dockerfile.stable.sglang)
@@ -44,6 +45,7 @@ ci/
     flashinfer.sh
     sglang.sh
     vllm.sh
+    megatron_bridge.sh
 .github/workflows/
   _build.yml              # reusable single-combination build workflow
   _ensure_release.yml     # reusable: create/update a component's release
@@ -53,6 +55,7 @@ ci/
   build-flashinfer.yml
   build-sglang.yml
   build-vllm.yml
+  build-megatron-bridge.yml
   build-all.yml           # builds every component x every matrix combo
   release.yml             # on `v*` tag push: full-matrix build + upload
   publish-index.yml       # (re)publishes the GitHub Pages PEP 503 index
