@@ -130,11 +130,20 @@ components:
     runs_on: ubuntu-24.04
     extra_env: {}
 
-  sglang-kernel:
+  sglang:
+    # Build working dir is the sgl-kernel subdir of the sglang submodule (that's
+    # the CUDA extension we compile); the sglang.sh builder additionally vendors
+    # the main `sglang` wheel from PyPI into the same dist/ (see below).
     path: sglang/sgl-kernel
     ref: v0.5.12 # matches `FROM lmsysorg/sglang:v0.5.12` in verl's sglang Dockerfile
-    builder: sgl_kernel
-    wheel_packages: [sglang-kernel]
+    builder: sglang
+    # Two wheels ship in the single `sglang-v0.5.12` release:
+    #   - sglang:        official manylinux wheel rehosted from PyPI (its only
+    #                    compiled part is a CUDA-agnostic Rust frontend, so there
+    #                    is nothing CUDA-specific to rebuild - see sglang.sh).
+    #   - sglang-kernel: the CUDA extension, compiled here for this CUDA/torch
+    #                    combo (pins to sgl-kernel 0.4.2.post2 at sglang v0.5.12).
+    wheel_packages: [sglang, sglang-kernel]
     torch_cuda_arch_list: null # sgl-kernel hardcodes its own gencode flags
     requires_cudnn: false
     max_jobs: 32

@@ -128,7 +128,7 @@ jobs:
           # This decouples version bumps from the submodule pointer commit.
           #
           # --force throughout: self-hosted runners (see runs_on in
-          # versions.yaml, e.g. vllm/sglang-kernel) reuse their workspace
+          # versions.yaml, e.g. vllm/sglang) reuse their workspace
           # across runs, and build scripts rewrite tracked files *inside* the
           # submodule - e.g. vllm.sh runs use_existing_torch.py, which strips
           # torch== pins out of pyproject.toml and requirements/**/*.{txt,in}.
@@ -150,7 +150,7 @@ jobs:
           free_disk_space
 
       - name: Set up swap space
-        if: inputs.component != 'vllm' && inputs.component != 'sglang-kernel'
+        if: inputs.component != 'vllm' && inputs.component != 'sglang'
         uses: pierotofy/set-swap-space@v1.0
         with:
           swap-size-gb: 10
@@ -227,7 +227,7 @@ jobs:
       - name: Remove stale wheel output from previous runs
         working-directory: ${{ inputs.path }}
         run: |
-          # Self-hosted runners (e.g. vllm, sglang-kernel) reuse their workspace
+          # Self-hosted runners (e.g. vllm, sglang) reuse their workspace
           # across runs, and the build scripts emit into dist/ without clearing
           # it first. Without this, a previous - possibly different-version -
           # build's wheel lingers in dist/ and gets swept into the "Upload

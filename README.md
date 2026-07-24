@@ -9,7 +9,7 @@ heavy native-extension dependencies of [verl](https://github.com/verl-project/ve
 | [TransformerEngine](https://github.com/NVIDIA/TransformerEngine) | `TransformerEngine` | PyTorch TE extension |
 | [flash-attention](https://github.com/Dao-AILab/flash-attention) | `flash-attention` | `flash_attn` |
 | [flashinfer](https://github.com/flashinfer-ai/flashinfer) | `flashinfer` | `flashinfer-python`, `flashinfer-cubin`, `flashinfer-jit-cache` |
-| [sglang](https://github.com/sgl-project/sglang) | `sglang/sgl-kernel` | `sgl-kernel` only (the rest of `sglang` is pure Python) |
+| [sglang](https://github.com/sgl-project/sglang) | `sglang/sgl-kernel` | `sglang-kernel` (compiled) + `sglang` (official PyPI wheel rehosted) |
 | [vllm](https://github.com/vllm-project/vllm) | `vllm` | `vllm` |
 
 Build commands follow the exact flags used in verl's own
@@ -42,7 +42,7 @@ ci/
     transformer_engine.sh
     flash_attention.sh
     flashinfer.sh
-    sgl_kernel.sh
+    sglang.sh
     vllm.sh
 .github/workflows/
   _build.yml              # reusable single-combination build workflow
@@ -51,7 +51,7 @@ ci/
   build-transformer-engine.yml
   build-flash-attention.yml
   build-flashinfer.yml
-  build-sglang-kernel.yml
+  build-sglang.yml
   build-vllm.yml
   build-all.yml           # builds every component x every matrix combo
   release.yml             # on `v*` tag push: full-matrix build + upload
@@ -185,9 +185,13 @@ Or install a specific wheel directly from that component's
   field), so pointing a component at a bigger/self-hosted runner (and
   bumping its `max_jobs` back up towards verl's own `128`/`256`) is a
   one-line edit, no workflow changes required.
-- **Only `sgl-kernel` is built from the `sglang` submodule.** The rest of
-  the `sglang` Python package has no CUDA to compile, so it's out of scope
-  for this wheelhouse.
+- **The `sglang` component ships two wheels in one release.** Only
+  `sglang-kernel` (the CUDA extension) is compiled from source - that's the
+  CUDA/torch combo upstream PyPI doesn't publish. The main `sglang` package's
+  only compiled part is a CUDA-agnostic Rust frontend that upstream already
+  ships as portable manylinux wheels, so `sglang.sh` download-and-rehosts that
+  official wheel into the same `sglang-<ref>` release rather than rebuilding it
+  (the same download-and-vendor pattern used for flashinfer's companion wheels).
 - **`apex` tracks `master`** (both verl Dockerfiles build it unpinned), so it
   effectively behaves like a rolling release under the fixed tag
   `apex-master`; every other component tracks a specific tag and gets a fresh

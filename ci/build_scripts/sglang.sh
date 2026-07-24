@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-# Builds the sgl-kernel CUDA extension wheel out of the sglang submodule
-# (scikit-build-core + CMake). Only sgl-kernel is built from sglang - the
-# main `sglang` python package has no CUDA to compile, so it isn't part of
-# this wheelhouse. Run with CWD = sglang/sgl-kernel.
+# Produces the two wheels that make up a `sglang-<ref>` release:
+#   - sglang-kernel: the CUDA extension, compiled here from the sgl-kernel subdir
+#     of the sglang submodule (scikit-build-core + CMake). This is the only
+#     source build - upstream PyPI publishes sgl-kernel for a single default
+#     CUDA, so building this CUDA/torch combo is the whole reason it lives here.
+#   - sglang:        the main framework. Its only compiled part is a
+#     CUDA-agnostic Rust frontend, and upstream already publishes portable
+#     manylinux wheels, so we download-and-rehost that official wheel rather than
+#     rebuild it (mirrors how flashinfer's companion wheels are vendored). This
+#     keeps the release self-contained without a redundant, less-portable rebuild.
+# Run with CWD = sglang/sgl-kernel.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=ci/build_scripts/common.sh
@@ -36,5 +43,18 @@ echo "CMAKE_ARGS=${CMAKE_ARGS}"
 uv build --wheel --no-build-isolation -Cbuild-dir=build .
 ./rename_wheels.sh
 
-echo "Built wheels:"
+# Vendor the official prebuilt main `sglang` wheel into the same dist/ so the
+# single `sglang-<ref>` release ships both wheels. The git ref (e.g. v0.5.12) is
+# the sglang package version, so fetch that exact version from PyPI. A branch/SHA
+# ref has no matching PyPI release, so only attempt it for version-like refs.
+if [[ "${REF:-}" =~ ^v?[0-9]+\.[0-9] ]]; then
+  sglang_version="${REF#v}"
+  echo "::group::Vendor prebuilt sglang==${sglang_version} wheel from PyPI"
+  download_prebuilt_wheel sglang "${sglang_version}" "https://pypi.org/simple" dist
+  echo "::endgroup::"
+else
+  echo "::warning::REF='${REF:-}' is not a version tag; skipping main sglang wheel vendoring" >&2
+fi
+
+echo "Built/collected wheels:"
 ls -al dist

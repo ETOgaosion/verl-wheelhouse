@@ -112,11 +112,18 @@ flashinfer_jit_cache_cu_index() {
 }
 
 # ---------------------------------------------------------------------------
-# download_flashinfer_wheel: pip download a flashinfer companion wheel with
-# retry logic (flashinfer.ai can have transient network issues; jit-cache is
-# ~1.2 GB). Writes the .whl into dest_dir.
+# download_prebuilt_wheel: pip download a prebuilt wheel (wheels only, no deps)
+# with retry logic, writing the .whl into dest_dir. Used to vendor wheels this
+# repo intentionally does not build from source:
+#   - flashinfer's companion wheels (flashinfer-cubin / -jit-cache from
+#     flashinfer.ai; jit-cache is ~1.2 GB and that index can be flaky), and
+#   - the main `sglang` wheel (its only compiled part is a CUDA-agnostic Rust
+#     frontend, already published as portable manylinux wheels on PyPI - see
+#     ci/build_scripts/sglang.sh).
+# --only-binary=:all: guarantees we rehost the upstream binary wheel and never
+# silently fall back to building an sdist.
 # ---------------------------------------------------------------------------
-download_flashinfer_wheel() {
+download_prebuilt_wheel() {
   local package="$1"
   local version="$2"
   local index_url="$3"
@@ -127,6 +134,7 @@ download_flashinfer_wheel() {
     if pip download "${package}==${version}" \
       --index-url "${index_url}" \
       --no-deps \
+      --only-binary=:all: \
       -d "${dest_dir}"; then
       echo "Downloaded ${package}==${version} from ${index_url}"
       return 0

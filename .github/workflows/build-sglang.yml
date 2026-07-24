@@ -1,4 +1,4 @@
-name: Build sglang-kernel
+name: Build sglang
 
 on:
   workflow_dispatch: {}
@@ -8,9 +8,9 @@ on:
       - "versions.yaml"
       - "ci/generate_matrix.py"
       - "ci/build_scripts/common.sh"
-      - "ci/build_scripts/sgl_kernel.sh"
+      - "ci/build_scripts/sglang.sh"
       - ".github/workflows/_build.yml"
-      - ".github/workflows/build-sglang-kernel.yml"
+      - ".github/workflows/build-sglang.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,7 +40,7 @@ jobs:
           if [[ "$EVENT_NAME" == "push" ]]; then
             args+=(--skip-existing-releases --repo "$GITHUB_REPOSITORY")
           fi
-          python3 ci/generate_matrix.py --component sglang-kernel --github-output "${args[@]}"
+          python3 ci/generate_matrix.py --component sglang --github-output "${args[@]}"
 
   build:
     needs: compute-matrix

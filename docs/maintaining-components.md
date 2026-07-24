@@ -154,7 +154,7 @@ where needed:
 | apex, vllm | dotted + semicolons, e.g. `8.0;9.0;12.0` | used as-is |
 | flash-attention, TransformerEngine | undotted, e.g. `80;90;120` | `ci/build_scripts/common.sh`'s `arch_list_strip_dots` |
 | flashinfer | space-separated with PTX-family suffixes, e.g. `8.0 9.0a 12.0f` | given verbatim in `versions.yaml` (suffixes can't be derived mechanically) |
-| sgl-kernel | n/a | set `torch_cuda_arch_list: null` - it hardcodes its own gencode flags |
+| sglang (sgl-kernel) | n/a | set `torch_cuda_arch_list: null` - it hardcodes its own gencode flags |
 
 ## See also
 

@@ -30,7 +30,7 @@ FLASHINFER_JIT_CACHE_INDEX="https://flashinfer.ai/whl/${FLASHINFER_CU_INDEX}"
 echo "flashinfer version=${FLASHINFER_VERSION} cuda=${CUDA_VERSION} jit-cache index=${FLASHINFER_JIT_CACHE_INDEX}"
 
 echo "::group::flashinfer-cubin (prebuilt wheel)"
-download_flashinfer_wheel \
+download_prebuilt_wheel \
   "flashinfer-cubin" \
   "${FLASHINFER_VERSION}" \
   "${FLASHINFER_CUBIN_INDEX}" \
@@ -38,7 +38,7 @@ download_flashinfer_wheel \
 echo "::endgroup::"
 
 echo "::group::flashinfer-jit-cache (prebuilt wheel)"
-download_flashinfer_wheel \
+download_prebuilt_wheel \
   "flashinfer-jit-cache" \
   "${FLASHINFER_VERSION}" \
   "${FLASHINFER_JIT_CACHE_INDEX}" \

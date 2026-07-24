@@ -72,7 +72,7 @@ Checklist:
   `arch_list_strip_dots` (e.g. `80;90;120`).
 - flashinfer: given verbatim with PTX-family suffixes (e.g.
   `8.0 9.0a 12.0f`) since those can't be derived mechanically.
-- sgl-kernel: set to `null` - it hardcodes its own gencode flags.
+- sglang (sgl-kernel): set to `null` - it hardcodes its own gencode flags.
 
 ## Release naming
 
